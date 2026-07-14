@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}{{ video.title }} — Gestão de Treinos{% endblock %}
+
+{% block content %}
+  <p><a href="{% url 'video_list' %}">← Voltar à biblioteca</a></p>
+
+  <h1>{{ video.title }}</h1>
+  {% if video.category %}<p class="muted">{{ video.category.name }}</p>{% endif %}
+
+  <div class="video-embed">
+    <iframe
+      src="{{ video.embed_url }}"
+      title="{{ video.title }}"
+      frameborder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowfullscreen>
+    </iframe>
+  </div>
+
+  {% if video.description %}
+    <div class="video-description">
+      <p>{{ video.description|linebreaksbr }}</p>
+    </div>
+  {% endif %}
+{% endblock %}

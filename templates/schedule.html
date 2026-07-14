@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Horário — Gestão de Treinos{% endblock %}
+
+{% block content %}
+  <h1>Horário</h1>
+  <p class="muted">Escolhe uma sessão para te inscreveres.</p>
+
+  {% if sessions %}
+    <ul class="card-list">
+      {% for s in sessions %}
+        <li class="card">
+          <div class="card-title">{{ s.title|default:s.service_type.name }}</div>
+          <div class="card-meta">
+            {{ s.start|date:"l, d/m/Y" }} às {{ s.start|time:"H:i" }}
+            · {{ s.duration_minutes }} min
+            {% if s.location %}· {{ s.location.name }}{% else %}· Online{% endif %}
+          </div>
+          <div class="card-meta">
+            {% if s.is_full %}
+              <span class="tag tag-full">Esgotada</span>
+            {% else %}
+              {{ s.spots_left }} vaga{{ s.spots_left|pluralize }} livre{{ s.spots_left|pluralize }}
+            {% endif %}
+          </div>
+
+          <div class="card-action">
+            {% if s.id in my_session_ids %}
+              <span class="tag tag-ok">Já inscrito</span>
+            {% elif s.is_full %}
+              <button class="btn btn-small" disabled>Esgotada</button>
+            {% else %}
+              <form action="{% url 'book' s.id %}" method="post" class="inline-form">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-small">Marcar</button>
+              </form>
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">Não há sessões futuras disponíveis de momento.</p>
+  {% endif %}
+{% endblock %}

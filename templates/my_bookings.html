@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}As minhas marcações — Gestão de Treinos{% endblock %}
+
+{% block content %}
+  <h1>As minhas marcações</h1>
+
+  {% if bookings %}
+    <ul class="card-list">
+      {% for b in bookings %}
+        <li class="card">
+          <div class="card-title">
+            {{ b.session.title|default:b.session.service_type.name }}
+          </div>
+          <div class="card-meta">
+            {{ b.session.start|date:"l, d/m/Y" }} às {{ b.session.start|time:"H:i" }}
+            {% if b.session.location %}· {{ b.session.location.name }}{% else %}· Online{% endif %}
+          </div>
+
+          <div class="card-action">
+            {% if b.client_cancellable %}
+              <form action="{% url 'cancel_booking' b.id %}" method="post" class="inline-form">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-small btn-outline">Cancelar</button>
+              </form>
+            {% else %}
+              <span class="muted">Cancelamento fora de prazo — fala com o treinador.</span>
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">Não tens marcações futuras.
+      <a href="{% url 'schedule' %}">Ver horário</a>.</p>
+  {% endif %}
+{% endblock %}

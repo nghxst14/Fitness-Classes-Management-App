@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Entrar — Gestão de Treinos{% endblock %}
+
+{% block content %}
+  <div class="form-card">
+    <h1>Entrar</h1>
+
+    {% if form.errors %}
+      <p class="msg msg-error">Utilizador ou password incorretos. Tenta de novo.</p>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="btn">Entrar</button>
+    </form>
+
+    <p class="muted"><a href="{% url 'password_reset' %}">Esqueci-me da password</a></p>
+    <p class="muted">Ainda não tens conta?
+      <a href="{% url 'signup' %}">Cria uma aqui</a>.</p>
+  </div>
+{% endblock %}

@@ -1,0 +1,317 @@
+from datetime import timedelta
+
+from django.conf import settings
+from django.db import models
+from django.utils import timezone
+
+
+class Location(models.Model):
+    """Local onde decorre a sessão (ex.: 'Estúdio', 'Parque da Cidade')."""
+
+    INDOOR = "indoor"
+    OUTDOOR = "outdoor"
+    KIND_CHOICES = [(INDOOR, "Indoor"), (OUTDOOR, "Outdoor")]
+
+    name = models.CharField("Nome", max_length=100)
+    kind = models.CharField("Tipo", max_length=10, choices=KIND_CHOICES, default=INDOOR)
+    address = models.CharField("Morada / indicações", max_length=255, blank=True)
+    active = models.BooleanField("Ativo", default=True)
+
+    class Meta:
+        verbose_name = "Local"
+        verbose_name_plural = "Locais"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class ServiceType(models.Model):
+    """
+    Tipo de serviço/oferta que o Sérgio vende.
+
+    Em vez de fixarmos os tipos no código, ele cria-os no admin:
+    'Aula de Grupo', 'PT Individual', 'Small Group', 'Plano Online', etc.
+    Cada um traz uma lotação por defeito (1 = individual, 3 = small group...).
+    """
+
+    name = models.CharField("Nome", max_length=100)
+    description = models.TextField("Descrição", blank=True)
+    default_capacity = models.PositiveIntegerField(
+        "Lotação por defeito",
+        default=1,
+        help_text="Nº de vagas sugerido para sessões deste tipo (ex.: 1 para PT, "
+        "3 para small group, 12 para aula de grupo).",
+    )
+    is_online = models.BooleanField(
+        "É online?",
+        default=False,
+        help_text="Marca se for um serviço à distância (sem local físico).",
+    )
+    min_cancel_hours = models.PositiveIntegerField(
+        "Antecedência mínima para cancelar (horas)",
+        default=0,
+        help_text="Nº de horas antes do início até quando o aluno pode cancelar "
+        "sozinho. 0 = sem restrição (ex.: aulas de grupo). Ex.: 12 para PT.",
+    )
+    active = models.BooleanField("Ativo", default=True)
+
+    class Meta:
+        verbose_name = "Tipo de serviço"
+        verbose_name_plural = "Tipos de serviço"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Session(models.Model):
+    """
+    Uma sessão agendada e concreta na agenda (uma aula ou um treino específico,
+    num dia e hora). É a isto que os alunos se inscrevem.
+    """
+
+    service_type = models.ForeignKey(
+        ServiceType,
+        on_delete=models.PROTECT,
+        related_name="sessions",
+        verbose_name="Tipo de serviço",
+    )
+    trainer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sessions_as_trainer",
+        verbose_name="Treinador",
+        limit_choices_to={"is_trainer": True},
+    )
+    location = models.ForeignKey(
+        Location,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sessions",
+        verbose_name="Local",
+        help_text="Deixar vazio se for uma sessão online.",
+    )
+    title = models.CharField(
+        "Título (opcional)",
+        max_length=120,
+        blank=True,
+        help_text="Se vazio, usa-se o nome do tipo de serviço.",
+    )
+    start = models.DateTimeField("Início")
+    duration_minutes = models.PositiveIntegerField("Duração (minutos)", default=60)
+    capacity = models.PositiveIntegerField(
+        "Lotação (nº de vagas)",
+        help_text="Nº máximo de alunos nesta sessão.",
+    )
+    is_cancelled = models.BooleanField("Cancelada", default=False)
+    notes = models.TextField("Notas", blank=True)
+    created_at = models.DateTimeField("Criada em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Sessão"
+        verbose_name_plural = "Sessões"
+        ordering = ["start"]
+
+    def __str__(self):
+        label = self.title or self.service_type.name
+        return f"{label} — {timezone.localtime(self.start):%d/%m/%Y %H:%M}"
+
+    @property
+    def end(self):
+        """Hora de fim, calculada a partir do início + duração."""
+        return self.start + timedelta(minutes=self.duration_minutes)
+
+    @property
+    def spots_taken(self):
+        """Nº de vagas já ocupadas (marcações ativas)."""
+        return self.bookings.filter(status=Booking.BOOKED).count()
+
+    @property
+    def spots_left(self):
+        """Vagas ainda disponíveis."""
+        return max(self.capacity - self.spots_taken, 0)
+
+    @property
+    def is_full(self):
+        return self.spots_left <= 0
+
+    @property
+    def is_past(self):
+        return self.start < timezone.now()
+
+
+class Pack(models.Model):
+    """
+    Um produto de pack de sessões que o aluno pode comprar
+    (ex.: 'Pack 10 sessões PT', válido 60 dias).
+    """
+
+    name = models.CharField("Nome", max_length=100)
+    service_type = models.ForeignKey(
+        ServiceType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="packs",
+        verbose_name="Tipo de serviço",
+        help_text="Deixar vazio se o pack servir para qualquer serviço.",
+    )
+    number_of_sessions = models.PositiveIntegerField("Nº de sessões")
+    price = models.DecimalField("Preço (€)", max_digits=7, decimal_places=2)
+    validity_days = models.PositiveIntegerField(
+        "Validade (dias)",
+        default=90,
+        help_text="Dias até o pack expirar, a contar da data de compra.",
+    )
+    active = models.BooleanField("Ativo", default=True)
+
+    class Meta:
+        verbose_name = "Pack"
+        verbose_name_plural = "Packs"
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.number_of_sessions} sessões)"
+
+
+class ClientPack(models.Model):
+    """
+    Um pack efetivamente comprado por um aluno.
+
+    Guardamos o total e as sessões usadas (em vez de ligar diretamente ao Pack)
+    para que o histórico não mude se o Sérgio editar o produto Pack mais tarde.
+    A lógica de descontar sessões ao marcar fica para o Bloco 2.
+    """
+
+    client = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="packs",
+        verbose_name="Aluno",
+    )
+    pack = models.ForeignKey(
+        Pack,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="purchases",
+        verbose_name="Pack",
+    )
+    sessions_total = models.PositiveIntegerField("Sessões (total)")
+    sessions_used = models.PositiveIntegerField("Sessões usadas", default=0)
+    purchased_at = models.DateField("Comprado em", default=timezone.now)
+    expires_at = models.DateField("Expira em", null=True, blank=True)
+    note = models.CharField("Nota", max_length=255, blank=True)
+
+    class Meta:
+        verbose_name = "Pack do aluno"
+        verbose_name_plural = "Packs dos alunos"
+        ordering = ["-purchased_at"]
+
+    def __str__(self):
+        who = self.client.get_full_name() or self.client.username
+        return f"{who} — {self.sessions_remaining}/{self.sessions_total} sessões"
+
+    @property
+    def sessions_remaining(self):
+        return max(self.sessions_total - self.sessions_used, 0)
+
+    @property
+    def is_expired(self):
+        return bool(self.expires_at and self.expires_at < timezone.localdate())
+
+    @property
+    def is_usable(self):
+        """Ainda tem sessões e não expirou."""
+        return self.sessions_remaining > 0 and not self.is_expired
+
+
+class Booking(models.Model):
+    """Uma marcação: um aluno inscrito numa sessão."""
+
+    BOOKED = "booked"
+    CANCELLED = "cancelled"
+    ATTENDED = "attended"
+    NO_SHOW = "no_show"
+    STATUS_CHOICES = [
+        (BOOKED, "Marcada"),
+        (CANCELLED, "Cancelada"),
+        (ATTENDED, "Compareceu"),
+        (NO_SHOW, "Faltou"),
+    ]
+
+    session = models.ForeignKey(
+        Session,
+        on_delete=models.CASCADE,
+        related_name="bookings",
+        verbose_name="Sessão",
+    )
+    client = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="bookings",
+        verbose_name="Aluno",
+    )
+    status = models.CharField(
+        "Estado", max_length=10, choices=STATUS_CHOICES, default=BOOKED
+    )
+    client_pack = models.ForeignKey(
+        ClientPack,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="bookings",
+        verbose_name="Pack usado",
+        help_text="Pack de onde saiu esta sessão (se aplicável).",
+    )
+    created_at = models.DateTimeField("Criada em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Marcação"
+        verbose_name_plural = "Marcações"
+        ordering = ["-created_at"]
+        # Impede o mesmo aluno de marcar duas vezes a mesma sessão.
+        constraints = [
+            models.UniqueConstraint(
+                fields=["session", "client"], name="unique_booking_por_sessao"
+            )
+        ]
+
+    def __str__(self):
+        who = self.client.get_full_name() or self.client.username
+        return f"{who} → {self.session}"
+
+    def client_can_cancel(self):
+        """
+        Diz se o próprio aluno pode cancelar esta marcação, e uma razão
+        caso não possa. O Sérgio (admin) cancela sempre pelo painel.
+
+        Regra: a antecedência mínima vem do tipo de serviço
+        (min_cancel_hours). 0 = sem restrição.
+        """
+        if self.status != self.BOOKED:
+            return False, "Esta marcação já não está ativa."
+        if self.session.is_cancelled:
+            return False, "Esta sessão foi cancelada."
+        if self.session.is_past:
+            return False, "Esta sessão já passou."
+
+        min_hours = self.session.service_type.min_cancel_hours
+        if min_hours > 0:
+            limit = self.session.start - timedelta(hours=min_hours)
+            if timezone.now() > limit:
+                return (
+                    False,
+                    f"Só é possível cancelar até {min_hours}h antes do início. "
+                    "Para casos excecionais, fala com o teu treinador.",
+                )
+        return True, ""
+
+    @property
+    def client_cancellable(self):
+        """Versão booleana simples (útil nos templates)."""
+        can, _ = self.client_can_cancel()
+        return can

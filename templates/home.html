@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Início — Gestão de Treinos{% endblock %}
+
+{% block content %}
+  <section class="hero">
+    <h1>Treina com marcação simples</h1>
+    <p>Marca as tuas aulas e sessões num só sítio.</p>
+    {% if not user.is_authenticated %}
+      <p>
+        <a class="btn" href="{% url 'signup' %}">Criar conta</a>
+        <a class="btn btn-outline" href="{% url 'login' %}">Entrar</a>
+      </p>
+    {% else %}
+      <p><a class="btn" href="{% url 'schedule' %}">Ver horário</a></p>
+    {% endif %}
+  </section>
+
+  <section>
+    <h2>Próximas sessões</h2>
+    {% if upcoming %}
+      <ul class="card-list">
+        {% for s in upcoming %}
+          <li class="card">
+            <div class="card-title">{{ s.title|default:s.service_type.name }}</div>
+            <div class="card-meta">
+              {{ s.start|date:"l, d/m/Y" }} às {{ s.start|time:"H:i" }}
+              {% if s.location %}· {{ s.location.name }}{% endif %}
+            </div>
+            <div class="card-meta">{{ s.spots_left }} vaga{{ s.spots_left|pluralize }} livre{{ s.spots_left|pluralize }}</div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">Ainda não há sessões agendadas.</p>
+    {% endif %}
+  </section>
+{% endblock %}

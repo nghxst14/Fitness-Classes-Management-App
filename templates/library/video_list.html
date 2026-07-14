@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Vídeos — Gestão de Treinos{% endblock %}
+
+{% block content %}
+  <h1>Biblioteca de vídeos</h1>
+  <p class="muted">Treinos e conteúdos para veres quando quiseres.</p>
+
+  {% if videos %}
+    {% regroup videos by category as category_list %}
+    {% for group in category_list %}
+      <h2>{{ group.grouper|default:"Geral" }}</h2>
+      <ul class="card-list video-grid">
+        {% for v in group.list %}
+          <li class="card video-card">
+            <a href="{% url 'video_detail' v.pk %}" class="video-link">
+              <span class="video-thumb">▶</span>
+              <span class="video-card-title">{{ v.title }}</span>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endfor %}
+  {% else %}
+    <p class="muted">Ainda não há vídeos disponíveis.</p>
+  {% endif %}
+{% endblock %}

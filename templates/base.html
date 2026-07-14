@@ -1,0 +1,47 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Gestão de Treinos{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{% url 'home' %}">Gestão de Treinos</a>
+    <nav class="nav">
+      {% if user.is_authenticated %}
+        <a href="{% url 'schedule' %}">Horário</a>
+        <a href="{% url 'video_list' %}">Vídeos</a>
+        <a href="{% url 'my_bookings' %}">As minhas marcações</a>
+        {% if user.is_staff %}<a href="/admin/">Administração</a>{% endif %}
+        <span class="nav-user">Olá, {{ user.get_short_name|default:user.username }}</span>
+        <form action="{% url 'logout' %}" method="post" class="inline-form">
+          {% csrf_token %}
+          <button type="submit" class="link-btn">Sair</button>
+        </form>
+      {% else %}
+        <a href="{% url 'login' %}">Entrar</a>
+        <a href="{% url 'signup' %}" class="btn btn-small">Criar conta</a>
+      {% endif %}
+    </nav>
+  </header>
+
+  <main class="container">
+    {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+          <li class="msg msg-{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <p>Gestão de Treinos</p>
+  </footer>
+</body>
+</html>

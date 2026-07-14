@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Criar conta — Gestão de Treinos{% endblock %}
+
+{% block content %}
+  <div class="form-card">
+    <h1>Criar conta</h1>
+
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="btn">Criar conta</button>
+    </form>
+
+    <p class="muted">Já tens conta?
+      <a href="{% url 'login' %}">Entra aqui</a>.</p>
+  </div>
+{% endblock %}
