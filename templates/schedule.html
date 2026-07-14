@@ -34,7 +34,7 @@
               {% else %}
                 <form action="{% url 'book' s.id %}" method="post" class="inline-form">
                   {% csrf_token %}
-                  <button type="submit" class="btn btn-small">Marcar</button>
+                  <button type="submit" class="btn btn-small">Reservar</button>
                 </form>
               {% endif %}
             </div>
