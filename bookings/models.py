@@ -143,6 +143,15 @@ class Session(models.Model):
     def is_past(self):
         return self.start < timezone.now()
 
+    @property
+    def card_image(self):
+        """Imagem de fundo do cartão, conforme o local é indoor/outdoor."""
+        if self.location and self.location.kind == Location.OUTDOOR:
+            return "img/brand/class-outdoor.jpg"
+        if self.location and self.location.kind == Location.INDOOR:
+            return "img/brand/class-indoor.jpg"
+        return ""
+
 
 class Pack(models.Model):
     """

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}Horário — Gestão de Treinos{% endblock %}
+{% block title %}Horário — RESTART NOW{% endblock %}
 
 {% block content %}
   <h1>Horário</h1>
@@ -9,32 +10,34 @@
   {% if sessions %}
     <ul class="card-list">
       {% for s in sessions %}
-        <li class="card">
-          <div class="card-title">{{ s.title|default:s.service_type.name }}</div>
-          <div class="card-meta">
-            {{ s.start|date:"l, d/m/Y" }} às {{ s.start|time:"H:i" }}
-            · {{ s.duration_minutes }} min
-            {% if s.location %}· {{ s.location.name }}{% else %}· Online{% endif %}
-          </div>
-          <div class="card-meta">
-            {% if s.is_full %}
-              <span class="tag tag-full">Esgotada</span>
-            {% else %}
-              {{ s.spots_left }} vaga{{ s.spots_left|pluralize }} livre{{ s.spots_left|pluralize }}
-            {% endif %}
-          </div>
+        <li class="class-card"
+            {% if s.card_image %}style="background-image:url('{% static s.card_image %}')"{% endif %}>
+          <div class="class-card-body">
+            <div class="class-card-title">{{ s.title|default:s.service_type.name }}</div>
+            <div class="class-card-meta">
+              {% if s.trainer %}{{ s.trainer.get_full_name }} · {% endif %}
+              {% if s.location %}{{ s.location.name }}{% else %}Online{% endif %}
+            </div>
+            <div class="class-card-meta">
+              {{ s.start|date:"l, d/m" }} · {{ s.start|time:"H:i" }} · {{ s.duration_minutes }}'
+            </div>
 
-          <div class="card-action">
-            {% if s.id in my_session_ids %}
-              <span class="tag tag-ok">Já inscrito</span>
-            {% elif s.is_full %}
-              <button class="btn btn-small" disabled>Esgotada</button>
-            {% else %}
-              <form action="{% url 'book' s.id %}" method="post" class="inline-form">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-small">Marcar</button>
-              </form>
-            {% endif %}
+            <div class="class-card-row">
+              <span class="capacity">
+                Lotação <b>{{ s.spots_taken }}</b><span class="sep">/</span>{{ s.capacity }}
+              </span>
+
+              {% if s.id in my_session_ids %}
+                <span class="tag tag-ok">Já inscrito</span>
+              {% elif s.is_full %}
+                <button class="btn btn-small" disabled>Esgotada</button>
+              {% else %}
+                <form action="{% url 'book' s.id %}" method="post" class="inline-form">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-small">Marcar</button>
+                </form>
+              {% endif %}
+            </div>
           </div>
         </li>
       {% endfor %}

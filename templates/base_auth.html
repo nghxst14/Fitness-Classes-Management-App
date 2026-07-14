@@ -1,0 +1,31 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}RESTART NOW{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body class="auth-body">
+  <main class="auth-wrap">
+    <a class="auth-logo" href="{% url 'home' %}">
+      <img src="{% static 'img/brand/logo-restart-now.png' %}" alt="RESTART NOW"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block'">
+      <span class="brand-text" style="display:none;font-size:1.6rem">RESTART NOW</span>
+    </a>
+
+    {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+          <li class="msg msg-{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    <div class="auth-card">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</body>
+</html>
