@@ -5,9 +5,53 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from .forms import PhoneLoginForm, SignUpForm, normalizar_telemovel
 from .models import Booking, Location, ServiceType, Session
 
 User = get_user_model()
+
+
+class PhoneNormalizationTests(TestCase):
+    """O mesmo número escrito de formas diferentes deve dar a mesma conta."""
+
+    def test_normalizar_variantes(self):
+        for escrito in ["912345678", "912 345 678", "912-345-678",
+                        "+351912345678", "+351 912 345 678", "00351912345678"]:
+            self.assertEqual(normalizar_telemovel(escrito), "912345678", escrito)
+
+    def test_normalizar_nao_mexe_em_usernames_de_staff(self):
+        self.assertEqual(normalizar_telemovel("admin"), "admin")
+
+    def _signup_data(self, telemovel):
+        return {
+            "username": telemovel,
+            "first_name": "Maria",
+            "birth_date": "1990-05-01",
+            "password1": "segredo1",
+            "password2": "segredo1",
+        }
+
+    def test_registo_normaliza_o_numero(self):
+        form = SignUpForm(data=self._signup_data("+351 912 345 678"))
+        self.assertTrue(form.is_valid(), form.errors)
+        user = form.save()
+        self.assertEqual(user.username, "912345678")
+
+    def test_registo_rejeita_numero_invalido(self):
+        form = SignUpForm(data=self._signup_data("123"))
+        self.assertFalse(form.is_valid())
+        self.assertIn("username", form.errors)
+
+    def test_registo_rejeita_duplicado_com_espacos(self):
+        User.objects.create_user(username="912345678", password="segredo1")
+        form = SignUpForm(data=self._signup_data("912 345 678"))
+        self.assertFalse(form.is_valid())
+        self.assertIn("username", form.errors)
+
+    def test_login_aceita_numero_com_espacos(self):
+        User.objects.create_user(username="912345678", password="segredo1")
+        form = PhoneLoginForm(data={"username": "912 345 678", "password": "segredo1"})
+        self.assertTrue(form.is_valid(), form.errors)
 
 
 class SessionCancelRefundTests(TestCase):
