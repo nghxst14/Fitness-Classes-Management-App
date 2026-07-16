@@ -5,6 +5,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Gestão de Treinos{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
 <body>
@@ -14,7 +17,11 @@
            onerror="this.style.display='none';this.nextElementSibling.style.display='inline'">
       <span class="brand-text" style="display:none">RESTART NOW</span>
     </a>
-    <nav class="nav">
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="menu-principal"
+            aria-label="Abrir menu">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="nav" id="menu-principal">
       {% if user.is_authenticated %}
         <a href="{% url 'schedule' %}">Horário</a>
         <a href="{% url 'packages' %}">Pacotes</a>
@@ -49,6 +56,15 @@
     <p>RESTART NOW</p>
   </footer>
 
+  <script>
+    // Menu hambúrguer (só visível em ecrãs estreitos, ver CSS .nav-toggle).
+    const navToggle = document.querySelector(".nav-toggle");
+    navToggle.addEventListener("click", () => {
+      const aberto = document.querySelector(".topbar").classList.toggle("open");
+      navToggle.setAttribute("aria-expanded", aberto);
+      navToggle.setAttribute("aria-label", aberto ? "Fechar menu" : "Abrir menu");
+    });
+  </script>
   {% block extra_js %}{% endblock %}
 </body>
 </html>

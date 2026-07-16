@@ -8,6 +8,9 @@
   --muted: #9aa1a0;
   --line: rgba(255, 255, 255, 0.08);
   --radius: 16px;
+  /* Fonte de destaque (títulos, cartões, botões): condensada e alta, como
+     nos cartazes desportivos. O corpo do texto usa a fonte de sistema. */
+  --font-display: "Oswald", "Arial Narrow", Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -35,8 +38,22 @@ input:focus-visible {
   border-radius: 4px;
 }
 
-h1 { font-size: 1.7rem; margin: 0.2rem 0 0.6rem; font-weight: 800; letter-spacing: -0.01em; }
-h2 { font-size: 1.25rem; margin-top: 1.8rem; font-weight: 700; }
+h1 {
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  margin: 0.2rem 0 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+h2 {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  margin-top: 1.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
 .muted { color: var(--muted); }
 
 /* Barra de topo */
@@ -61,6 +78,47 @@ h2 { font-size: 1.25rem; margin-top: 1.8rem; font-weight: 700; }
 .nav a:hover { color: var(--green); }
 .nav-user { color: var(--muted); font-size: 0.9rem; }
 
+/* Botão hambúrguer: invisível em desktop, substitui a navegação em mobile. */
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 44px;
+  height: 44px;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.nav-toggle span {
+  display: block;
+  height: 2px;
+  background: var(--white);
+  border-radius: 2px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+/* As 3 barras transformam-se num X quando o menu está aberto. */
+.topbar.open .nav-toggle span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.topbar.open .nav-toggle span:nth-child(2) { opacity: 0; }
+.topbar.open .nav-toggle span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+@media (max-width: 720px) {
+  .nav-toggle { display: flex; }
+  .nav {
+    display: none;
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.9rem;
+    padding: 0.75rem 0 0.5rem;
+    border-top: 1px solid var(--line);
+    margin-top: 0.6rem;
+  }
+  .topbar.open .nav { display: flex; }
+}
+
 /* Conteúdo */
 .container { max-width: 820px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
 
@@ -74,6 +132,27 @@ h2 { font-size: 1.25rem; margin-top: 1.8rem; font-weight: 700; }
 }
 .hero h1 { margin-top: 0; }
 .hero p { color: var(--muted); }
+
+/* Hero com foto da marca: mesmo tratamento de gradiente dos cartões de aula,
+   para o site abrir com a mesma linguagem visual das aulas. */
+.hero-photo {
+  position: relative;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center 30%;
+  padding: 0;
+}
+.hero-photo::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(15,15,15,0.45) 0%, rgba(15,15,15,0.9) 100%);
+}
+.hero-body { position: relative; z-index: 1; padding: 3.5rem 1.75rem 2.5rem; }
+.hero-title { font-size: 2.4rem; line-height: 1.1; }
+.hero-accent { color: var(--green); }
+.hero-photo p { color: #d7dad9; }
+.hero-actions { margin-top: 1.4rem; display: flex; gap: 0.6rem; flex-wrap: wrap; }
 
 /* Cartões genéricos.
    Em ecrãs largos o grid divide-se em colunas (mínimo 280px por cartão);
@@ -117,7 +196,7 @@ h2 { font-size: 1.25rem; margin-top: 1.8rem; font-weight: 700; }
 }
 .class-card > * { position: relative; z-index: 1; }
 .class-card-body { padding: 1.1rem 1.2rem; }
-.class-card-title { font-weight: 800; font-size: 1.15rem; text-transform: uppercase; letter-spacing: 0.02em; }
+.class-card-title { font-family: var(--font-display); font-weight: 600; font-size: 1.25rem; text-transform: uppercase; letter-spacing: 0.03em; }
 .class-card-meta { color: #d7dad9; font-size: 0.9rem; margin-top: 0.2rem; }
 .class-card-row {
   display: flex;
@@ -155,8 +234,11 @@ h2 { font-size: 1.25rem; margin-top: 1.8rem; font-weight: 700; }
   border: none;
   border-radius: 10px;
   padding: 0.6rem 1.15rem;
+  font-family: var(--font-display);
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   cursor: pointer;
   transition: background 0.15s ease, transform 0.05s ease;
 }
@@ -321,7 +403,7 @@ h2 { font-size: 1.25rem; margin-top: 1.8rem; font-weight: 700; }
 
 /* Cartões de pacote */
 .pack-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
-.pack-name { font-weight: 800; font-size: 1.15rem; }
+.pack-name { font-family: var(--font-display); font-weight: 600; font-size: 1.25rem; text-transform: uppercase; letter-spacing: 0.03em; }
 .pack-sessions { color: var(--green); font-weight: 700; }
 .pack-desc { color: var(--muted); margin: 0.5rem 0 0; }
 .pack-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }

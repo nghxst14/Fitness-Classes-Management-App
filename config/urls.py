@@ -9,6 +9,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
+from accounts.views import ThrottledLoginView
 from bookings.forms import PhoneLoginForm
 
 # Link de WhatsApp para o aluno pedir ajuda com a password (recuperação = Opção A).
@@ -18,9 +19,10 @@ WA_HELP_URL = "https://wa.me/%s?text=%s" % (settings.SERGIO_WHATSAPP, quote(_wa_
 urlpatterns = [
     path("admin/", admin.site.urls),
     # Login/logout (por telemóvel). Sem recuperação por email — é via WhatsApp.
+    # ThrottledLoginView limita tentativas falhadas (proteção de força bruta).
     path(
         "conta/login/",
-        auth_views.LoginView.as_view(
+        ThrottledLoginView.as_view(
             authentication_form=PhoneLoginForm,
             extra_context={"wa_help_url": WA_HELP_URL},
         ),
