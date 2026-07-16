@@ -3,8 +3,10 @@ from urllib.parse import quote
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.db.models import F
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -91,23 +93,31 @@ def book(request, session_id):
         messages.error(request, "Esta sessão está esgotada.")
         return redirect("schedule")
 
-    if request.user.credits < 1:
-        messages.error(
-            request, "Não tens créditos disponíveis. Adquire um pacote para reservar."
+    with transaction.atomic():
+        # UPDATE condicional: só desconta o crédito se ainda houver saldo.
+        # Isto é atómico na base de dados, por isso dois pedidos em simultâneo
+        # (duplo clique, duas abas) não conseguem ambos ler o mesmo saldo
+        # antigo e reservar os dois com um único crédito.
+        descontou = (
+            get_user_model()
+            .objects.filter(pk=request.user.pk, credits__gte=1)
+            .update(credits=F("credits") - 1)
         )
-        return redirect("packages")
+        if not descontou:
+            messages.error(
+                request, "Não tens créditos disponíveis. Adquire um pacote para reservar."
+            )
+            return redirect("packages")
 
-    if existing:
-        existing.status = Booking.BOOKED
-        existing.save()
-    else:
-        Booking.objects.create(
-            session=session, client=request.user, status=Booking.BOOKED
-        )
+        if existing:
+            existing.status = Booking.BOOKED
+            existing.save(update_fields=["status"])
+        else:
+            Booking.objects.create(
+                session=session, client=request.user, status=Booking.BOOKED
+            )
 
-    request.user.credits -= 1
-    request.user.save(update_fields=["credits"])
-
+    request.user.refresh_from_db(fields=["credits"])
     messages.success(
         request,
         f"Reserva feita! Ficaste com {request.user.credits} crédito(s).",
@@ -141,11 +151,20 @@ def cancel_booking(request, booking_id):
         messages.error(request, reason)
         return redirect("my_bookings")
 
-    booking.status = Booking.CANCELLED
-    booking.save()
+    with transaction.atomic():
+        # UPDATE condicional: só cancela (e devolve o crédito) se a marcação
+        # ainda estiver "booked". Evita que um duplo clique devolva 2 créditos.
+        cancelou = Booking.objects.filter(pk=booking.pk, status=Booking.BOOKED).update(
+            status=Booking.CANCELLED
+        )
+        if cancelou:
+            get_user_model().objects.filter(pk=request.user.pk).update(
+                credits=F("credits") + 1
+            )
 
-    request.user.credits += 1
-    request.user.save(update_fields=["credits"])
+    if not cancelou:
+        messages.error(request, "Esta marcação já não está ativa.")
+        return redirect("my_bookings")
 
     messages.success(request, "Reserva cancelada. O crédito foi devolvido.")
     return redirect("my_bookings")

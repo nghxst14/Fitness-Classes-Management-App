@@ -1,7 +1,9 @@
 from datetime import timedelta
 
 from django.conf import settings
-from django.db import models
+from django.contrib.auth import get_user_model
+from django.db import models, transaction
+from django.db.models import F
 from django.utils import timezone
 
 
@@ -151,6 +153,34 @@ class Session(models.Model):
         if self.location and self.location.kind == Location.INDOOR:
             return "img/brand/class-indoor.jpg"
         return ""
+
+    def save(self, *args, **kwargs):
+        """
+        Deteta quando a sessão passa a cancelada (is_cancelled: False -> True)
+        e, nesse caso, cancela as marcações ativas e devolve o crédito a cada
+        aluno. Sem isto, um aluno perdia o crédito por uma aula cancelada pelo
+        próprio treinador (ex.: chuva numa aula outdoor).
+        """
+        was_cancelled = None
+        if self.pk:
+            was_cancelled = (
+                Session.objects.filter(pk=self.pk)
+                .values_list("is_cancelled", flat=True)
+                .first()
+            )
+        super().save(*args, **kwargs)
+        if self.is_cancelled and was_cancelled is False:
+            self._refund_active_bookings()
+
+    def _refund_active_bookings(self):
+        User = get_user_model()
+        with transaction.atomic():
+            for booking in self.bookings.filter(status=Booking.BOOKED):
+                booking.status = Booking.CANCELLED
+                booking.save(update_fields=["status"])
+                User.objects.filter(pk=booking.client_id).update(
+                    credits=F("credits") + 1
+                )
 
 
 class Pack(models.Model):
