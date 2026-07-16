@@ -1,34 +1,66 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.utils import timezone
 
 from .models import User
 
 
+class BirthdayTodayFilter(admin.SimpleListFilter):
+    """Filtro rápido para ver quem faz anos hoje."""
+
+    title = "Aniversário"
+    parameter_name = "bday"
+
+    def lookups(self, request, model_admin):
+        return [("today", "Faz anos hoje")]
+
+    def queryset(self, request, queryset):
+        if self.value() == "today":
+            today = timezone.localdate()
+            return queryset.filter(
+                birth_date__month=today.month, birth_date__day=today.day
+            )
+        return queryset
+
+
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    """Painel de administração dos utilizadores."""
+    """Painel de administração dos utilizadores (login por telemóvel)."""
 
-    # Colunas mostradas na lista de utilizadores
     list_display = (
         "username",
         "get_full_name",
-        "email",
-        "phone",
+        "credits",
+        "birth_date",
         "is_trainer",
         "is_staff",
     )
-    list_filter = ("is_trainer", "is_staff", "is_active")
-    search_fields = ("username", "first_name", "last_name", "email", "phone")
+    # Permite ao Sérgio atualizar os créditos direto na lista (após pagamento).
+    list_editable = ("credits",)
+    list_filter = (BirthdayTodayFilter, "is_trainer", "is_staff", "is_active")
+    search_fields = ("username", "first_name", "last_name")
+    ordering = ("first_name", "last_name", "username")
 
-    # Acrescenta os nossos campos extra aos formulários do utilizador,
-    # reaproveitando a estrutura padrão do Django.
-    fieldsets = BaseUserAdmin.fieldsets + (
-        ("Dados adicionais", {"fields": ("phone", "is_trainer", "created_at")}),
+    fieldsets = (
+        (None, {"fields": ("username", "password")}),
+        ("Dados pessoais", {"fields": ("first_name", "last_name", "birth_date")}),
+        ("Créditos", {"fields": ("credits",)}),
+        (
+            "Permissões",
+            {"fields": ("is_trainer", "is_active", "is_staff", "is_superuser", "groups", "user_permissions")},
+        ),
+        ("Datas", {"fields": ("last_login", "date_joined", "created_at")}),
     )
     readonly_fields = ("created_at",)
 
-    add_fieldsets = BaseUserAdmin.add_fieldsets + (
-        ("Dados adicionais", {"fields": ("phone", "is_trainer")}),
+    add_fieldsets = (
+        (
+            None,
+            {
+                "classes": ("wide",),
+                "fields": ("username", "password1", "password2"),
+            },
+        ),
     )
 
     @admin.display(description="Nome")

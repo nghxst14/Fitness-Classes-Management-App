@@ -59,8 +59,9 @@ class SessionAdmin(admin.ModelAdmin):
 
 @admin.register(Pack)
 class PackAdmin(admin.ModelAdmin):
-    list_display = ("name", "number_of_sessions", "price", "validity_days", "active")
-    list_filter = ("active", "service_type")
+    list_display = ("name", "number_of_sessions", "price", "order", "active")
+    list_editable = ("order", "active")
+    list_filter = ("active",)
     search_fields = ("name",)
 
 

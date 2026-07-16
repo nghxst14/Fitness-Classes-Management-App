@@ -5,7 +5,15 @@
 
 {% block content %}
   <h1>Horário</h1>
-  <p class="muted">Escolhe uma sessão para te inscreveres.</p>
+
+  <div class="day-nav">
+    <a class="day-arrow" href="?date={{ prev_day|date:'Y-m-d' }}" aria-label="Dia anterior">&#8249;</a>
+    <div class="day-label">
+      {{ day|date:"l, d/m/Y" }}
+      {% if is_today %}<span class="day-today">hoje</span>{% endif %}
+    </div>
+    <a class="day-arrow" href="?date={{ next_day|date:'Y-m-d' }}" aria-label="Dia seguinte">&#8250;</a>
+  </div>
 
   {% if sessions %}
     <ul class="card-list">
@@ -18,9 +26,7 @@
               {% if s.trainer %}{{ s.trainer.get_full_name }} · {% endif %}
               {% if s.location %}{{ s.location.name }}{% else %}Online{% endif %}
             </div>
-            <div class="class-card-meta">
-              {{ s.start|date:"l, d/m" }} · {{ s.start|time:"H:i" }} · {{ s.duration_minutes }}'
-            </div>
+            <div class="class-card-meta">{{ s.start|time:"H:i" }} · {{ s.duration_minutes }}'</div>
 
             <div class="class-card-row">
               <span class="capacity">
@@ -28,7 +34,7 @@
               </span>
 
               {% if s.id in my_session_ids %}
-                <span class="tag tag-ok">Já inscrito</span>
+                <span class="tag tag-ok">Reservado</span>
               {% elif s.is_full %}
                 <button class="btn btn-small" disabled>Esgotada</button>
               {% else %}
@@ -43,6 +49,6 @@
       {% endfor %}
     </ul>
   {% else %}
-    <p class="muted">Não há sessões futuras disponíveis de momento.</p>
+    <p class="muted">Não há sessões marcadas para este dia.</p>
   {% endif %}
 {% endblock %}

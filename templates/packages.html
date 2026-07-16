@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Pacotes — RESTART NOW{% endblock %}
+
+{% block content %}
+  <h1>Pacotes</h1>
+  <p class="muted">
+    Escolhe um pacote e fala diretamente com o treinador pelo WhatsApp para
+    tratar do pagamento. Depois, os créditos são adicionados à tua conta.
+  </p>
+
+  {% if items %}
+    <ul class="card-list pack-list">
+      {% for item in items %}
+        <li class="card pack-card">
+          <div class="pack-head">
+            <div class="pack-name">{{ item.pack.name }}</div>
+            <div class="pack-sessions">{{ item.pack.number_of_sessions }} sessões</div>
+          </div>
+          {% if item.pack.description %}
+            <p class="pack-desc">{{ item.pack.description }}</p>
+          {% endif %}
+          <div class="pack-foot">
+            {% if item.pack.price %}<span class="pack-price">{{ item.pack.price }} €</span>{% endif %}
+            <a class="btn btn-small" href="{{ item.wa_url }}" target="_blank" rel="noopener">
+              Falar no WhatsApp
+            </a>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">Ainda não há pacotes disponíveis.</p>
+  {% endif %}
+{% endblock %}

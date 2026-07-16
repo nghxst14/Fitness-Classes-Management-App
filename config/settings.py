@@ -129,4 +129,9 @@ LOGIN_URL = "login"
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = "Gestão de Treinos <nao-responder@exemplo.pt>"
 
+# --- WhatsApp -----------------------------------------------------------------
+# Número (com indicativo, sem "+" nem espaços) para os links wa.me dos pacotes
+# e da ajuda com a password. TROCAR pelo número do Sérgio quando for para produção.
+SERGIO_WHATSAPP = "351939339857"
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

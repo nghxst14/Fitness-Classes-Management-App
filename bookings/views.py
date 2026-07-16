@@ -1,13 +1,16 @@
+from datetime import datetime, timedelta
+from urllib.parse import quote
+
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
-from django.db import IntegrityError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .forms import SignUpForm
-from .models import Booking, Session
+from .models import Booking, Pack, Session
 
 
 def home(request):
@@ -38,66 +41,83 @@ def signup(request):
 
 @login_required
 def schedule(request):
-    """Lista as sessões futuras disponíveis para marcar."""
+    """
+    Lista as sessões de um dia, com navegação para trás/frente entre dias.
+    O dia vem do parâmetro ?date=AAAA-MM-DD (por defeito, hoje).
+    """
+    day_str = request.GET.get("date")
+    try:
+        day = datetime.strptime(day_str, "%Y-%m-%d").date() if day_str else timezone.localdate()
+    except (ValueError, TypeError):
+        day = timezone.localdate()
+
     sessions = (
-        Session.objects.filter(start__gte=timezone.now(), is_cancelled=False)
-        .select_related("service_type", "location")
+        Session.objects.filter(start__date=day, is_cancelled=False)
+        .select_related("service_type", "location", "trainer")
         .order_by("start")
     )
-    # IDs das sessões em que o utilizador já está inscrito (para mudar o botão).
     my_session_ids = set(
         Booking.objects.filter(
             client=request.user, status=Booking.BOOKED
         ).values_list("session_id", flat=True)
     )
-    return render(
-        request,
-        "schedule.html",
-        {"sessions": sessions, "my_session_ids": my_session_ids},
-    )
+    context = {
+        "sessions": sessions,
+        "my_session_ids": my_session_ids,
+        "day": day,
+        "prev_day": day - timedelta(days=1),
+        "next_day": day + timedelta(days=1),
+        "is_today": day == timezone.localdate(),
+    }
+    return render(request, "schedule.html", context)
 
 
 @login_required
 @require_POST
 def book(request, session_id):
-    """Marca o utilizador atual numa sessão (com validações)."""
+    """Reserva o utilizador atual numa sessão (gasta 1 crédito)."""
     session = get_object_or_404(Session, pk=session_id)
 
     if session.is_cancelled or session.is_past:
         messages.error(request, "Essa sessão já não está disponível.")
         return redirect("schedule")
 
-    # Reaproveita uma marcação anterior cancelada, se existir
-    # (evita conflito com a restrição de unicidade sessão+aluno).
-    booking, created = Booking.objects.get_or_create(
-        session=session,
-        client=request.user,
-        defaults={"status": Booking.BOOKED},
-    )
-
-    if not created and booking.status == Booking.BOOKED:
+    existing = Booking.objects.filter(session=session, client=request.user).first()
+    if existing and existing.status == Booking.BOOKED:
         messages.info(request, "Já estás inscrito nesta sessão.")
         return redirect("schedule")
 
-    # Verifica lotação (conta as marcações ativas no momento).
     if session.is_full:
         messages.error(request, "Esta sessão está esgotada.")
         return redirect("schedule")
 
-    booking.status = Booking.BOOKED
-    try:
-        booking.save()
-    except IntegrityError:
-        messages.error(request, "Não foi possível concluir a marcação.")
-        return redirect("schedule")
+    if request.user.credits < 1:
+        messages.error(
+            request, "Não tens créditos disponíveis. Adquire um pacote para reservar."
+        )
+        return redirect("packages")
 
-    messages.success(request, "Marcação feita com sucesso!")
+    if existing:
+        existing.status = Booking.BOOKED
+        existing.save()
+    else:
+        Booking.objects.create(
+            session=session, client=request.user, status=Booking.BOOKED
+        )
+
+    request.user.credits -= 1
+    request.user.save(update_fields=["credits"])
+
+    messages.success(
+        request,
+        f"Reserva feita! Ficaste com {request.user.credits} crédito(s).",
+    )
     return redirect("my_bookings")
 
 
 @login_required
 def my_bookings(request):
-    """As marcações futuras do utilizador."""
+    """As reservas futuras do utilizador."""
     bookings = (
         Booking.objects.filter(
             client=request.user,
@@ -113,7 +133,7 @@ def my_bookings(request):
 @login_required
 @require_POST
 def cancel_booking(request, booking_id):
-    """Cancela uma marcação do próprio utilizador, respeitando a regra."""
+    """Cancela uma reserva do próprio utilizador e devolve o crédito."""
     booking = get_object_or_404(Booking, pk=booking_id, client=request.user)
 
     can_cancel, reason = booking.client_can_cancel()
@@ -123,5 +143,27 @@ def cancel_booking(request, booking_id):
 
     booking.status = Booking.CANCELLED
     booking.save()
-    messages.success(request, "Marcação cancelada.")
+
+    request.user.credits += 1
+    request.user.save(update_fields=["credits"])
+
+    messages.success(request, "Reserva cancelada. O crédito foi devolvido.")
     return redirect("my_bookings")
+
+
+@login_required
+def packages(request):
+    """
+    Mostra os pacotes disponíveis. Cada pacote tem um botão que abre o
+    WhatsApp do Sérgio com uma mensagem já preenchida (a venda é tratada por
+    ele diretamente).
+    """
+    number = settings.SERGIO_WHATSAPP
+    items = []
+    for pack in Pack.objects.filter(active=True).order_by("order", "name"):
+        msg = pack.whatsapp_message or (
+            f"Olá! Tenho interesse no pacote \"{pack.name}\" "
+            f"({pack.number_of_sessions} sessões)."
+        )
+        items.append({"pack": pack, "wa_url": f"https://wa.me/{number}?text={quote(msg)}"})
+    return render(request, "packages.html", {"items": items})

@@ -160,28 +160,27 @@ class Pack(models.Model):
     """
 
     name = models.CharField("Nome", max_length=100)
-    service_type = models.ForeignKey(
-        ServiceType,
-        on_delete=models.SET_NULL,
-        null=True,
+    description = models.CharField(
+        "Descrição curta", max_length=200, blank=True,
+        help_text="Aparece no cartão do pacote no site.",
+    )
+    number_of_sessions = models.PositiveIntegerField("Nº de sessões (créditos)")
+    price = models.DecimalField(
+        "Preço (€)", max_digits=7, decimal_places=2, null=True, blank=True
+    )
+    whatsapp_message = models.TextField(
+        "Mensagem de WhatsApp",
         blank=True,
-        related_name="packs",
-        verbose_name="Tipo de serviço",
-        help_text="Deixar vazio se o pack servir para qualquer serviço.",
+        help_text="Mensagem já preenchida quando o aluno clica no pacote. "
+        "Se vazio, é usada uma mensagem genérica.",
     )
-    number_of_sessions = models.PositiveIntegerField("Nº de sessões")
-    price = models.DecimalField("Preço (€)", max_digits=7, decimal_places=2)
-    validity_days = models.PositiveIntegerField(
-        "Validade (dias)",
-        default=90,
-        help_text="Dias até o pack expirar, a contar da data de compra.",
-    )
+    order = models.PositiveIntegerField("Ordem", default=0)
     active = models.BooleanField("Ativo", default=True)
 
     class Meta:
-        verbose_name = "Pack"
-        verbose_name_plural = "Packs"
-        ordering = ["name"]
+        verbose_name = "Pacote"
+        verbose_name_plural = "Pacotes"
+        ordering = ["order", "name"]
 
     def __str__(self):
         return f"{self.name} ({self.number_of_sessions} sessões)"
