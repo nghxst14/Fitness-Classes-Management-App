@@ -140,6 +140,7 @@ h2 {
   overflow: hidden;
   background-size: cover;
   background-position: center 30%;
+  background-clip: padding-box;  /* mesma correção do .class-card */
   padding: 0;
 }
 .hero-photo::before {
@@ -186,6 +187,9 @@ h2 {
   flex-direction: column;
   justify-content: flex-end;
   background: var(--dark-2) center/cover no-repeat;
+  /* A foto pára no limite interior do rebordo (como o gradiente do ::before);
+     sem isto, ficava um anel de 1px de foto sem gradiente junto às bordas. */
+  background-clip: padding-box;
   color: var(--white);
 }
 .class-card::before {
