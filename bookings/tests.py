@@ -122,15 +122,14 @@ class SessionAdminActionTests(TestCase):
         self.booking = Booking.objects.create(session=self.sessao, client=self.aluno)
         self.url = "/admin/bookings/session/"
 
-    def _acao(self, nome):
-        return self.client_http.post(
-            self.url, {"action": nome, "_selected_action": [self.sessao.pk]}
-        )
+    def _cancelar(self):
+        return self.client_http.post(f"{self.url}{self.sessao.pk}/cancelar/")
 
-    def test_acao_cancelar_devolve_creditos(self):
-        # O ponto crítico: a ação usa save() e não update(), por isso o
-        # reembolso automático tem de disparar.
-        self._acao("cancelar_sessoes")
+    def _reativar(self):
+        return self.client_http.post(f"{self.url}{self.sessao.pk}/reativar/")
+
+    def test_botao_cancelar_devolve_creditos(self):
+        self._cancelar()
         self.sessao.refresh_from_db()
         self.aluno.refresh_from_db()
         self.booking.refresh_from_db()
@@ -138,9 +137,9 @@ class SessionAdminActionTests(TestCase):
         self.assertEqual(self.aluno.credits, 1)
         self.assertEqual(self.booking.status, Booking.CANCELLED)
 
-    def test_acao_reativar_nao_inscreve_ninguem(self):
-        self._acao("cancelar_sessoes")
-        self._acao("reativar_sessoes")
+    def test_reativar_nao_inscreve_ninguem(self):
+        self._cancelar()
+        self._reativar()
         self.sessao.refresh_from_db()
         self.aluno.refresh_from_db()
         self.booking.refresh_from_db()
@@ -151,10 +150,27 @@ class SessionAdminActionTests(TestCase):
         self.assertEqual(self.aluno.credits, 1)
 
     def test_cancelar_duas_vezes_nao_devolve_em_dobro(self):
-        self._acao("cancelar_sessoes")
-        self._acao("cancelar_sessoes")  # já cancelada: deve ser ignorada
+        self._cancelar()
+        self._cancelar()  # já cancelada: deve ser ignorada
         self.aluno.refresh_from_db()
         self.assertEqual(self.aluno.credits, 1)
+
+    def test_get_nao_cancela(self):
+        # Visitar o URL sem POST (ex.: pré-carregamento do browser) não
+        # pode cancelar nada.
+        self.client_http.get(f"{self.url}{self.sessao.pk}/cancelar/")
+        self.sessao.refresh_from_db()
+        self.assertFalse(self.sessao.is_cancelled)
+
+    def test_cancelar_em_massa_ja_nao_existe(self):
+        # A ação em massa foi removida de propósito (cancelamento acidental
+        # com seleção múltipla); garante que não volta por engano.
+        response = self.client_http.post(
+            self.url,
+            {"action": "cancelar_sessoes", "_selected_action": [self.sessao.pk]},
+        )
+        self.sessao.refresh_from_db()
+        self.assertFalse(self.sessao.is_cancelled)
 
 
 class BookingAdminTelemovelTests(TestCase):

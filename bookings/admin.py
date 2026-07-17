@@ -2,8 +2,10 @@ import re
 
 from django.contrib import admin, messages
 from django.contrib.auth.models import Group
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q
-from django.urls import reverse
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
 
@@ -145,31 +147,77 @@ class SessionAdmin(admin.ModelAdmin):
     date_hierarchy = "start"
     autocomplete_fields = ("trainer", "location", "service_type")
     inlines = [BookingInline]
-    actions = ["cancelar_sessoes", "reativar_sessoes"]
+    # Cancelar NÃO tem ação em massa (decisão após um cancelamento acidental
+    # com seleção múltipla): faz-se aula a aula, pelo botão na ficha da
+    # sessão, com confirmação. Reativar mantém-se em massa (não mexe em
+    # créditos, e serve o caso "chuva que afinal passou").
+    actions = ["reativar_sessoes"]
+    # O checkbox is_cancelled sai do formulário pela mesma razão — o único
+    # caminho para cancelar é o botão explícito. O estado fica visível
+    # em leitura.
+    exclude = ("is_cancelled",)
+    readonly_fields = ("estado",)
 
-    @admin.action(description="Cancelar selecionadas (devolve os créditos)")
-    def cancelar_sessoes(self, request, queryset):
-        """
-        Cancela cada sessão via save() — NUNCA queryset.update(), que
-        saltaria a deteção em Session.save() e não devolveria os créditos.
-        """
-        canceladas = creditos = 0
-        for sessao in queryset.filter(is_cancelled=False):
-            creditos += sessao.bookings.filter(status=Booking.BOOKED).count()
-            sessao.is_cancelled = True
-            sessao.save()
-            canceladas += 1
-        if canceladas:
-            self.message_user(
-                request,
-                f"{canceladas} sessão(ões) cancelada(s); {creditos} crédito(s) "
-                "devolvido(s) aos alunos. Não te esqueças de os avisar.",
-                messages.SUCCESS,
-            )
-        else:
-            self.message_user(
-                request, "Nenhuma sessão ativa na seleção.", messages.WARNING
-            )
+    def get_urls(self):
+        """Rotas dos botões Cancelar/Reativar da ficha da sessão."""
+        rotas = [
+            path(
+                "<path:object_id>/cancelar/",
+                self.admin_site.admin_view(self.cancelar_view),
+                name="bookings_session_cancelar",
+            ),
+            path(
+                "<path:object_id>/reativar/",
+                self.admin_site.admin_view(self.reativar_view),
+                name="bookings_session_reativar",
+            ),
+        ]
+        return rotas + super().get_urls()
+
+    def cancelar_view(self, request, object_id):
+        """Cancela UMA aula (botão na ficha, com confirmação no browser)."""
+        sessao = get_object_or_404(Session, pk=object_id)
+        if not self.has_change_permission(request, sessao):
+            raise PermissionDenied
+        if request.method == "POST":
+            if sessao.is_cancelled:
+                self.message_user(
+                    request, "Esta aula já está cancelada.", messages.WARNING
+                )
+            else:
+                creditos = sessao.bookings.filter(status=Booking.BOOKED).count()
+                sessao.is_cancelled = True
+                sessao.save()  # dispara o reembolso automático
+                self.message_user(
+                    request,
+                    f"Aula cancelada; {creditos} crédito(s) devolvido(s) aos "
+                    "alunos. Não te esqueças de os avisar.",
+                    messages.SUCCESS,
+                )
+        return redirect("admin:bookings_session_change", object_id)
+
+    def reativar_view(self, request, object_id):
+        """Reativa UMA aula (sem inscrever ninguém automaticamente)."""
+        sessao = get_object_or_404(Session, pk=object_id)
+        if not self.has_change_permission(request, sessao):
+            raise PermissionDenied
+        if request.method == "POST":
+            if not sessao.is_cancelled:
+                self.message_user(
+                    request, "Esta aula não está cancelada.", messages.WARNING
+                )
+            else:
+                antigas = sessao.bookings.filter(status=Booking.CANCELLED).count()
+                sessao.is_cancelled = False
+                sessao.save()
+                self.message_user(
+                    request,
+                    "Aula reativada. Ninguém foi inscrito automaticamente — "
+                    f"há {antigas} marcação(ões) cancelada(s) associada(s); "
+                    "avisa os alunos para se reinscreverem.",
+                    messages.SUCCESS,
+                )
+        return redirect("admin:bookings_session_change", object_id)
 
     @admin.action(description="Reativar selecionadas")
     def reativar_sessoes(self, request, queryset):

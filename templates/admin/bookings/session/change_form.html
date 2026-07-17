@@ -1,0 +1,24 @@
+{% extends "admin/change_form.html" %}
+
+{# Botões Cancelar/Reativar da aula, junto à barra de guardar/remover. #}
+{# O "formaction" envia o POST para a rota própria (bookings/admin.py), #}
+{# sem gravar o resto do formulário — cancelar é um ato separado de editar. #}
+{% block submit_buttons_bottom %}
+  {{ block.super }}
+  {% if original %}
+    <div class="submit-row">
+      {% if original.is_cancelled %}
+        <input type="submit"
+               formaction="{% url 'admin:bookings_session_reativar' original.pk %}"
+               value="Reativar esta aula"
+               onclick="return confirm('Reativar esta aula? Ninguém será inscrito automaticamente.')">
+      {% else %}
+        <input type="submit"
+               formaction="{% url 'admin:bookings_session_cancelar' original.pk %}"
+               value="Cancelar esta aula (devolve os créditos)"
+               style="background:#ba2121; color:#fff;"
+               onclick="return confirm('Cancelar esta aula e devolver os créditos aos inscritos?')">
+      {% endif %}
+    </div>
+  {% endif %}
+{% endblock %}
