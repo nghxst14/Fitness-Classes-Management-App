@@ -102,6 +102,61 @@ class SessionAdminFilterTests(TestCase):
         )
 
 
+class SessionAdminActionTests(TestCase):
+    """As ações Cancelar/Reativar da lista de Sessões no admin."""
+
+    def setUp(self):
+        admin_user = User.objects.create_superuser(
+            username="admin-teste", password="segredo1"
+        )
+        self.client_http = Client()
+        self.client_http.force_login(admin_user)
+        service = ServiceType.objects.create(name="Aula", default_capacity=10)
+        self.sessao = Session.objects.create(
+            service_type=service, start=timezone.now() + timedelta(days=1),
+            duration_minutes=60, capacity=10,
+        )
+        self.aluno = User.objects.create_user(
+            username="912345678", password="x", credits=0
+        )
+        self.booking = Booking.objects.create(session=self.sessao, client=self.aluno)
+        self.url = "/admin/bookings/session/"
+
+    def _acao(self, nome):
+        return self.client_http.post(
+            self.url, {"action": nome, "_selected_action": [self.sessao.pk]}
+        )
+
+    def test_acao_cancelar_devolve_creditos(self):
+        # O ponto crítico: a ação usa save() e não update(), por isso o
+        # reembolso automático tem de disparar.
+        self._acao("cancelar_sessoes")
+        self.sessao.refresh_from_db()
+        self.aluno.refresh_from_db()
+        self.booking.refresh_from_db()
+        self.assertTrue(self.sessao.is_cancelled)
+        self.assertEqual(self.aluno.credits, 1)
+        self.assertEqual(self.booking.status, Booking.CANCELLED)
+
+    def test_acao_reativar_nao_inscreve_ninguem(self):
+        self._acao("cancelar_sessoes")
+        self._acao("reativar_sessoes")
+        self.sessao.refresh_from_db()
+        self.aluno.refresh_from_db()
+        self.booking.refresh_from_db()
+        self.assertFalse(self.sessao.is_cancelled)
+        # A marcação continua cancelada e o aluno fica com o crédito:
+        # é ele que decide se se reinscreve.
+        self.assertEqual(self.booking.status, Booking.CANCELLED)
+        self.assertEqual(self.aluno.credits, 1)
+
+    def test_cancelar_duas_vezes_nao_devolve_em_dobro(self):
+        self._acao("cancelar_sessoes")
+        self._acao("cancelar_sessoes")  # já cancelada: deve ser ignorada
+        self.aluno.refresh_from_db()
+        self.assertEqual(self.aluno.credits, 1)
+
+
 class BookingAdminTelemovelTests(TestCase):
     """A coluna Telemóvel das Marcações liga ao WhatsApp (só números válidos)."""
 

@@ -1,6 +1,6 @@
 import re
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth.models import Group
 from django.db.models import Q
 from django.urls import reverse
@@ -145,6 +145,59 @@ class SessionAdmin(admin.ModelAdmin):
     date_hierarchy = "start"
     autocomplete_fields = ("trainer", "location", "service_type")
     inlines = [BookingInline]
+    actions = ["cancelar_sessoes", "reativar_sessoes"]
+
+    @admin.action(description="Cancelar selecionadas (devolve os créditos)")
+    def cancelar_sessoes(self, request, queryset):
+        """
+        Cancela cada sessão via save() — NUNCA queryset.update(), que
+        saltaria a deteção em Session.save() e não devolveria os créditos.
+        """
+        canceladas = creditos = 0
+        for sessao in queryset.filter(is_cancelled=False):
+            creditos += sessao.bookings.filter(status=Booking.BOOKED).count()
+            sessao.is_cancelled = True
+            sessao.save()
+            canceladas += 1
+        if canceladas:
+            self.message_user(
+                request,
+                f"{canceladas} sessão(ões) cancelada(s); {creditos} crédito(s) "
+                "devolvido(s) aos alunos. Não te esqueças de os avisar.",
+                messages.SUCCESS,
+            )
+        else:
+            self.message_user(
+                request, "Nenhuma sessão ativa na seleção.", messages.WARNING
+            )
+
+    @admin.action(description="Reativar selecionadas")
+    def reativar_sessoes(self, request, queryset):
+        """
+        Reativa sem inscrever ninguém automaticamente: os alunos foram
+        reembolsados no cancelamento e decidem eles se voltam (a app
+        suporta reinscrição na mesma aula). O Sérgio avisa-os — as
+        marcações canceladas ficam visíveis na ficha da sessão e nas
+        Marcações, com o atalho de WhatsApp.
+        """
+        reativadas = antigas = 0
+        for sessao in queryset.filter(is_cancelled=True):
+            antigas += sessao.bookings.filter(status=Booking.CANCELLED).count()
+            sessao.is_cancelled = False
+            sessao.save()
+            reativadas += 1
+        if reativadas:
+            self.message_user(
+                request,
+                f"{reativadas} sessão(ões) reativada(s). Ninguém foi inscrito "
+                f"automaticamente — há {antigas} marcação(ões) cancelada(s) "
+                "associada(s); avisa os alunos para se reinscreverem.",
+                messages.SUCCESS,
+            )
+        else:
+            self.message_user(
+                request, "Nenhuma sessão cancelada na seleção.", messages.WARNING
+            )
 
     @admin.display(description="Estado")
     def estado(self, obj):
