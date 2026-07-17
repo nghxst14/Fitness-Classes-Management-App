@@ -36,7 +36,6 @@ INSTALLED_APPS = [
     # As nossas apps:
     "accounts",
     "bookings",
-    "library",
 ]
 
 MIDDLEWARE = [

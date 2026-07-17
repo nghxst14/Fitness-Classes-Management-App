@@ -34,10 +34,8 @@ Detalhes completos em `GUIA_COMANDOS.md`.
 ## Estrutura
 
 - `config/` — settings, urls, wsgi.
-- `accounts/` — modelo de utilizador personalizado (`User`).
+- `accounts/` — modelo de utilizador personalizado (`User`) + login com throttle.
 - `bookings/` — o núcleo: locais, tipos de serviço, sessões, reservas, pacotes.
-- `library/` — app dos vídeos, **DESATIVADA** (ver abaixo). Continua instalada mas
-  sem rotas nem link na navegação.
 - `templates/`, `static/` — HTML e CSS/JS. Marca em `static/img/brand/`.
 
 ## Modelo de negócio e decisões-chave (importante)
@@ -72,8 +70,9 @@ Estas decisões vieram de reuniões com o Sérgio e **substituem** ideias antiga
 6. **Horário navegável por dia.** O Sérgio marca a semana toda de uma vez; o
    aluno anda para trás/frente entre dias no `/horario/` (`?date=AAAA-MM-DD`).
 
-7. **Aba de vídeos removida.** O cliente decidiu que não é necessária. A app
-   `library` ficou instalada mas sem rotas/nav (código preservado, caso volte).
+7. **Aba de vídeos removida DE TODO** (jul 2026). O cliente decidiu que não é
+   necessária. A app `library` foi apagada por completo (código, tabelas,
+   admin); se algum dia voltar, recupera-se do histórico do Git.
 
 8. **Data de nascimento no registo** para o Sérgio saber os aniversários.
    Por agora, há um filtro no admin ("Faz anos hoje"). O **aviso automático
@@ -107,8 +106,7 @@ Estas decisões vieram de reuniões com o Sérgio e **substituem** ideias antiga
 - `bookings.Pack`: nome, descrição, `number_of_sessions` (= créditos), preço
   (opcional), `whatsapp_message`, ordem, ativo.
 - `bookings.ClientPack`: existe mas **não é central** agora (os créditos vivem no
-  User). Não removido para evitar migração destrutiva.
-- `library.VideoCategory` / `library.Video`: da app desativada.
+  User). Não removido para evitar migração destrutiva; escondido do admin.
 
 ## Fluxos principais (views em bookings/views.py)
 
