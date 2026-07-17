@@ -45,9 +45,11 @@ class UserAdmin(BaseUserAdmin):
         (None, {"fields": ("username", "password")}),
         ("Dados pessoais", {"fields": ("first_name", "last_name", "birth_date")}),
         ("Créditos", {"fields": ("credits",)}),
+        # Sem "groups"/"user_permissions": só fariam sentido com vários
+        # funcionários no admin (ver nota em bookings/admin.py).
         (
             "Permissões",
-            {"fields": ("is_trainer", "is_active", "is_staff", "is_superuser", "groups", "user_permissions")},
+            {"fields": ("is_trainer", "is_active", "is_staff", "is_superuser")},
         ),
         ("Datas", {"fields": ("last_login", "date_joined", "created_at")}),
     )
