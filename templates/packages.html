@@ -15,7 +15,7 @@
         <li class="card pack-card">
           <div class="pack-head">
             <div class="pack-name">{{ item.pack.name }}</div>
-            <div class="pack-sessions">{{ item.pack.number_of_sessions }} sessões</div>
+            <div class="pack-sessions">{{ item.pack.number_of_sessions }} sess{{ item.pack.number_of_sessions|pluralize:"ão,ões" }}</div>
           </div>
           {% if item.pack.description %}
             <p class="pack-desc">{{ item.pack.description }}</p>

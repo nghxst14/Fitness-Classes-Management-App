@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import Group
 from django.db.models import Q
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 
@@ -131,9 +132,7 @@ class SessionAdmin(admin.ModelAdmin):
         "service_type",
         "location",
         "start",
-        "capacity",
-        "spots_taken",
-        "spots_left",
+        "inscritos",
         "estado",
     )
     # Mais recentes primeiro: sem isto, as aulas mais ANTIGAS apareciam no
@@ -158,13 +157,21 @@ class SessionAdmin(admin.ModelAdmin):
             return format_html('<span style="color:#888;">Concluída</span>')
         return format_html('<span style="color:#1c7430;">✔ Agendada</span>')
 
-    @admin.display(description="Ocupadas")
-    def spots_taken(self, obj):
-        return obj.spots_taken
-
-    @admin.display(description="Livres")
-    def spots_left(self, obj):
-        return obj.spots_left
+    @admin.display(description="Inscritos")
+    def inscritos(self, obj):
+        """
+        "3 / 12" clicável: leva às Marcações filtradas por esta aula, onde
+        se veem os nomes (e onde um dia se marcam presenças/faltas).
+        Substitui as antigas colunas Lotação/Ocupadas/Livres, que diziam
+        variações da mesma coisa em três colunas.
+        """
+        url = (
+            reverse("admin:bookings_booking_changelist")
+            + f"?session__id__exact={obj.pk}"
+        )
+        return format_html(
+            '<a href="{}">{} / {}</a>', url, obj.spots_taken, obj.capacity
+        )
 
 
 @admin.register(Pack)
@@ -188,3 +195,10 @@ class BookingAdmin(admin.ModelAdmin):
     search_fields = ("client__username", "client__first_name", "client__last_name")
     autocomplete_fields = ("session", "client")
     date_hierarchy = "created_at"
+
+    def lookup_allowed(self, lookup, value, request=None):
+        # Autoriza o filtro por sessão vindo da coluna "Inscritos" da lista
+        # de Sessões (o admin bloqueia lookups não declarados, por segurança).
+        if lookup == "session__id__exact":
+            return True
+        return super().lookup_allowed(lookup, value, request)
