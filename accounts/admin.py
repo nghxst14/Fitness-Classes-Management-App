@@ -41,6 +41,14 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ("username", "first_name", "last_name")
     ordering = ("first_name", "last_name", "username")
 
+    def get_actions(self, request):
+        # Sem remoção em massa: apagar contas é raro e delicado (histórico de
+        # marcações vai atrás) — faz-se uma a uma, na ficha do utilizador,
+        # como nas Sessões.
+        acoes = super().get_actions(request)
+        acoes.pop("delete_selected", None)
+        return acoes
+
     fieldsets = (
         (None, {"fields": ("username", "password")}),
         ("Dados pessoais", {"fields": ("first_name", "last_name", "birth_date")}),

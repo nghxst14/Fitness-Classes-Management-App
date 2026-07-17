@@ -1,0 +1,34 @@
+{% load i18n static %}
+{% comment %}
+Cópia do search_form.html do Django 5.1 com UMA adição: o botão "Limpar"
+a seguir à contagem de resultados, que limpa só a pesquisa (mantém filtros
+e ordenação). Sem ele, a única forma de sair de uma pesquisa era o link
+discreto "(N no total)".
+{% endcomment %}
+{% if cl.search_fields %}
+<div id="toolbar"><form id="changelist-search" method="get" role="search">
+<div><!-- DIV needed for valid HTML -->
+<label for="searchbar"><img src="{% static "admin/img/search.svg" %}" alt="Search"></label>
+<input type="text" size="40" name="{{ search_var }}" value="{{ cl.query }}" id="searchbar"{% if cl.search_help_text %} aria-describedby="searchbar_helptext"{% endif %}>
+<input type="submit" value="{% translate 'Search' %}">
+{% if show_result_count %}
+    <span class="small quiet">{% blocktranslate count counter=cl.result_count %}{{ counter }} result{% plural %}{{ counter }} results{% endblocktranslate %} (<a href="?{% if cl.is_popup %}{{ is_popup_var }}=1{% if cl.add_facets %}&{% endif %}{% endif %}{% if cl.add_facets %}{{ is_facets_var }}{% endif %}">{% if cl.show_full_result_count %}{% blocktranslate with full_result_count=cl.full_result_count %}{{ full_result_count }} total{% endblocktranslate %}{% else %}{% translate "Show all" %}{% endif %}</a>)</span>
+{% endif %}
+{% if cl.query %}
+    {# Nota: "new window.URL", não "new URL" — em handlers inline o browser #}
+    {# resolve URL como document.URL (string), e "não é um construtor". #}
+    <a href="#" class="button"
+       onclick="const u = new window.URL(window.location); u.searchParams.delete('{{ search_var }}'); window.location.href = u; return false;">
+      Limpar
+    </a>
+{% endif %}
+{% for pair in cl.params.items %}
+    {% if pair.0 != search_var %}<input type="hidden" name="{{ pair.0 }}" value="{{ pair.1 }}">{% endif %}
+{% endfor %}
+</div>
+{% if cl.search_help_text %}
+<br class="clear">
+<div class="help" id="searchbar_helptext">{{ cl.search_help_text }}</div>
+{% endif %}
+</form></div>
+{% endif %}

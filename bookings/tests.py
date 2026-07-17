@@ -162,6 +162,14 @@ class SessionAdminActionTests(TestCase):
         self.sessao.refresh_from_db()
         self.assertFalse(self.sessao.is_cancelled)
 
+    def test_ficha_da_sessao_nao_mostra_treinador(self):
+        response = self.client_http.get(f"{self.url}{self.sessao.pk}/change/")
+        self.assertNotContains(response, 'name="trainer"')
+
+    def test_utilizadores_sem_remocao_em_massa(self):
+        response = self.client_http.get("/admin/accounts/user/")
+        self.assertNotContains(response, "delete_selected")
+
     def test_cancelar_em_massa_ja_nao_existe(self):
         # A ação em massa foi removida de propósito (cancelamento acidental
         # com seleção múltipla); garante que não volta por engano.

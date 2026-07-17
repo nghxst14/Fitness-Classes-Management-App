@@ -1,0 +1,46 @@
+{% extends "admin/base.html" %}
+
+{% comment %}
+Cópia do base_site.html do Django 5.1 com UMA adição (bloco extrahead):
+uma seta "← Voltar" no topo das fichas (formulários de edição/adição e
+confirmações de remoção). Usa history.back() de propósito — ao contrário
+do breadcrumb, devolve o Sérgio à lista EXATAMENTE como a deixou
+(pesquisa, filtros e página preservados).
+{% endcomment %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block branding %}
+<div id="site-name"><a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a></div>
+{% if user.is_anonymous %}
+  {% include "admin/color_theme_toggle.html" %}
+{% endif %}
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // Só nas páginas "de dentro": formulários e confirmações de remoção.
+    var paginas = ["change-form", "delete-confirmation"];
+    var aplicavel = paginas.some(function (c) {
+      return document.body.classList.contains(c);
+    });
+    // history.length <= 1 = aberto em aba nova: não há "anterior" para voltar.
+    if (!aplicavel || history.length <= 1) return;
+
+    var seta = document.createElement("a");
+    seta.href = "#";
+    seta.textContent = "← Voltar";
+    seta.style.cssText = "display:inline-block; margin:0 0 12px; font-weight:600;";
+    seta.addEventListener("click", function (e) {
+      e.preventDefault();
+      history.back();
+    });
+    var content = document.getElementById("content");
+    if (content) content.insertBefore(seta, content.firstChild);
+  });
+</script>
+{% endblock %}

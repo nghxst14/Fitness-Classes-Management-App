@@ -145,7 +145,7 @@ class SessionAdmin(admin.ModelAdmin):
     list_filter = (EstadoFilter, TempoFilter, "service_type", "location")
     search_fields = ("title", "service_type__name")
     date_hierarchy = "start"
-    autocomplete_fields = ("trainer", "location", "service_type")
+    autocomplete_fields = ("location", "service_type")
     inlines = [BookingInline]
     # Cancelar NÃO tem ação em massa (decisão após um cancelamento acidental
     # com seleção múltipla): faz-se aula a aula, pelo botão na ficha da
@@ -154,8 +154,9 @@ class SessionAdmin(admin.ModelAdmin):
     actions = ["reativar_sessoes"]
     # O checkbox is_cancelled sai do formulário pela mesma razão — o único
     # caminho para cancelar é o botão explícito. O estado fica visível
-    # em leitura.
-    exclude = ("is_cancelled",)
+    # em leitura. O campo trainer sai porque só há um treinador (o Sérgio);
+    # o campo fica no modelo, escondido, caso um dia haja mais.
+    exclude = ("is_cancelled", "trainer")
     readonly_fields = ("estado",)
 
     def get_urls(self):
