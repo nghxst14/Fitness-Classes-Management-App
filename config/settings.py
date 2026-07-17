@@ -83,9 +83,10 @@ DATABASES = {
 # --- Validação de palavras-passe ---------------------------------------------
 # Optámos por regras simples (público com menos à-vontade tecnológico):
 # apenas um mínimo de 6 caracteres. Sem exigir maiúsculas, símbolos, etc.
-# Como as contas não guardam dados sensíveis nem pagamentos, o risco é baixo.
-# Nota: a melhor ajuda a quem esquece a password será o "Esqueci-me da
-# password" por email, que fica para os acabamentos (Bloco 4).
+# Como as contas não guardam dados sensíveis nem pagamentos, o risco é baixo
+# — e o login tem limite de tentativas (accounts.views.ThrottledLoginView).
+# Quem esquece a password fala com o Sérgio pelo WhatsApp e ele redefine-a
+# no admin.
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
@@ -121,13 +122,6 @@ LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
 LOGIN_URL = "login"
 
-
-# --- Email -------------------------------------------------------------------
-# Em desenvolvimento, os emails (ex.: link de recuperação de password) são
-# "enviados" para o terminal onde corre o runserver — não é preciso servidor
-# de email nenhum para testar. No deploy (Bloco 5) ligamos a um email real.
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-DEFAULT_FROM_EMAIL = "Gestão de Treinos <nao-responder@exemplo.pt>"
 
 # --- WhatsApp -----------------------------------------------------------------
 # Número (com indicativo, sem "+" nem espaços) para os links wa.me dos pacotes

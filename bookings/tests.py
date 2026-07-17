@@ -54,6 +54,58 @@ class PhoneNormalizationTests(TestCase):
         self.assertTrue(form.is_valid(), form.errors)
 
 
+class DeleteRefundTests(TestCase):
+    """Apagar (em vez de cancelar) não pode fazer desaparecer créditos."""
+
+    def setUp(self):
+        self.service = ServiceType.objects.create(name="Aula", default_capacity=10)
+        self.student = User.objects.create_user(
+            username="911111111", password="segredo1", credits=0
+        )
+
+    def _sessao(self, quando):
+        return Session.objects.create(
+            service_type=self.service,
+            start=quando,
+            duration_minutes=60,
+            capacity=10,
+        )
+
+    def test_apagar_sessao_futura_devolve_credito(self):
+        sessao = self._sessao(timezone.now() + timedelta(days=1))
+        Booking.objects.create(session=sessao, client=self.student)
+        sessao.delete()  # apaga a marcação em cascata
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.credits, 1)
+
+    def test_apagar_em_massa_no_queryset_tambem_devolve(self):
+        # O admin "apagar selecionados" usa queryset.delete(), que não chama
+        # o delete() de cada objeto — só os sinais. É este caminho que testamos.
+        sessao = self._sessao(timezone.now() + timedelta(days=1))
+        Booking.objects.create(session=sessao, client=self.student)
+        Session.objects.filter(pk=sessao.pk).delete()
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.credits, 1)
+
+    def test_apagar_sessao_passada_nao_devolve(self):
+        sessao = self._sessao(timezone.now() - timedelta(days=1))
+        Booking.objects.create(session=sessao, client=self.student)
+        sessao.delete()
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.credits, 0)
+
+    def test_apagar_marcacao_ja_cancelada_nao_devolve_outra_vez(self):
+        # O cancelamento normal já devolveu o crédito; apagar depois o registo
+        # não pode devolver segundo.
+        sessao = self._sessao(timezone.now() + timedelta(days=1))
+        booking = Booking.objects.create(
+            session=sessao, client=self.student, status=Booking.CANCELLED
+        )
+        booking.delete()
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.credits, 0)
+
+
 class SessionCancelRefundTests(TestCase):
     """Cancelar uma sessão deve devolver o crédito e cancelar a marcação."""
 

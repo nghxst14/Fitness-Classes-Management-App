@@ -78,22 +78,31 @@ def schedule(request):
 @require_POST
 def book(request, session_id):
     """Reserva o utilizador atual numa sessão (gasta 1 crédito)."""
-    session = get_object_or_404(Session, pk=session_id)
-
-    if session.is_cancelled or session.is_past:
-        messages.error(request, "Essa sessão já não está disponível.")
-        return redirect("schedule")
-
-    existing = Booking.objects.filter(session=session, client=request.user).first()
-    if existing and existing.status == Booking.BOOKED:
-        messages.info(request, "Já estás inscrito nesta sessão.")
-        return redirect("schedule")
-
-    if session.is_full:
-        messages.error(request, "Esta sessão está esgotada.")
-        return redirect("schedule")
-
     with transaction.atomic():
+        # select_for_update tranca a linha desta sessão até ao fim da
+        # transação: dois alunos a disputar a última vaga entram em fila,
+        # e o segundo já vê a vaga ocupada (em vez de ambos "ganharem").
+        # No SQLite é redundante (um escritor de cada vez); no PostgreSQL
+        # do deploy é o que garante a correção.
+        session = get_object_or_404(
+            Session.objects.select_for_update(), pk=session_id
+        )
+
+        if session.is_cancelled or session.is_past:
+            messages.error(request, "Essa sessão já não está disponível.")
+            return redirect("schedule")
+
+        existing = Booking.objects.filter(
+            session=session, client=request.user
+        ).first()
+        if existing and existing.status == Booking.BOOKED:
+            messages.info(request, "Já estás inscrito nesta sessão.")
+            return redirect("schedule")
+
+        if session.is_full:
+            messages.error(request, "Esta sessão está esgotada.")
+            return redirect("schedule")
+
         # UPDATE condicional: só desconta o crédito se ainda houver saldo.
         # Isto é atómico na base de dados, por isso dois pedidos em simultâneo
         # (duplo clique, duas abas) não conseguem ambos ler o mesmo saldo

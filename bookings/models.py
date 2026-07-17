@@ -4,6 +4,8 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models, transaction
 from django.db.models import F
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 from django.utils import timezone
 
 
@@ -353,3 +355,27 @@ class Booking(models.Model):
         """Versão booleana simples (útil nos templates)."""
         can, _ = self.client_can_cancel()
         return can
+
+
+@receiver(pre_delete, sender=Booking)
+def devolver_credito_ao_apagar_marcacao(sender, instance, **kwargs):
+    """
+    Se uma marcação ativa de uma sessão futura for APAGADA (e não cancelada),
+    devolve o crédito ao aluno.
+
+    Porquê um sinal e não Booking.delete()? Porque quando o Sérgio apaga uma
+    Sessão no admin, as marcações vão atrás em cascata — e nesse caminho o
+    Django não chama o delete() de cada marcação, mas dispara sempre este
+    sinal. Sem isto, apagar uma sessão (em vez de a cancelar) fazia os
+    créditos dos alunos desaparecerem silenciosamente.
+
+    Sessões passadas não devolvem crédito: a aula já aconteceu.
+    """
+    if (
+        instance.status == Booking.BOOKED
+        and not instance.session.is_past
+        and not instance.session.is_cancelled
+    ):
+        get_user_model().objects.filter(pk=instance.client_id).update(
+            credits=F("credits") + 1
+        )
