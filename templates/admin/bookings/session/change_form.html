@@ -6,7 +6,8 @@
 {% block submit_buttons_bottom %}
   {{ block.super }}
   {% if original %}
-    <div class="submit-row">
+    {# Ações destrutivas à direita, como o Remover da barra de cima. #}
+    <div class="submit-row" style="display:flex; justify-content:flex-end;">
       {% if original.is_cancelled %}
         <input type="submit"
                formaction="{% url 'admin:bookings_session_reativar' original.pk %}"
