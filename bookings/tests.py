@@ -102,6 +102,34 @@ class SessionAdminFilterTests(TestCase):
         )
 
 
+class BookingAdminTelemovelTests(TestCase):
+    """A coluna Telemóvel das Marcações liga ao WhatsApp (só números válidos)."""
+
+    def setUp(self):
+        admin_user = User.objects.create_superuser(
+            username="admin-teste", password="segredo1"
+        )
+        self.client_http = Client()
+        self.client_http.force_login(admin_user)
+        service = ServiceType.objects.create(name="Aula", default_capacity=10)
+        self.sessao = Session.objects.create(
+            service_type=service, start=timezone.now() + timedelta(days=1),
+            duration_minutes=60, capacity=10,
+        )
+
+    def test_numero_valido_tem_link_whatsapp(self):
+        aluno = User.objects.create_user(username="912345678", password="x")
+        Booking.objects.create(session=self.sessao, client=aluno)
+        response = self.client_http.get("/admin/bookings/booking/")
+        self.assertContains(response, "https://wa.me/351912345678")
+
+    def test_username_sem_numero_nao_tem_link(self):
+        aluno = User.objects.create_user(username="ManualSemNumero", password="x")
+        Booking.objects.create(session=self.sessao, client=aluno)
+        response = self.client_http.get("/admin/bookings/booking/")
+        self.assertNotContains(response, "wa.me")
+
+
 class DeleteRefundTests(TestCase):
     """Apagar (em vez de cancelar) não pode fazer desaparecer créditos."""
 

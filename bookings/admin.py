@@ -1,3 +1,5 @@
+import re
+
 from django.contrib import admin
 from django.contrib.auth.models import Group
 from django.db.models import Q
@@ -190,11 +192,29 @@ class PackAdmin(admin.ModelAdmin):
 
 @admin.register(Booking)
 class BookingAdmin(admin.ModelAdmin):
-    list_display = ("client", "session", "status", "created_at")
+    list_display = ("client", "telemovel", "session", "status", "created_at")
     list_filter = ("status", "session__service_type")
     search_fields = ("client__username", "client__first_name", "client__last_name")
     autocomplete_fields = ("session", "client")
     date_hierarchy = "created_at"
+
+    @admin.display(description="Telemóvel")
+    def telemovel(self, obj):
+        """
+        O número do aluno; clicar pergunta se quer abrir a conversa no
+        WhatsApp com ele (confirm nativo do browser) e, se sim, abre o
+        wa.me numa aba nova. Contas cujo username não é um número
+        (ex.: admin) aparecem sem link.
+        """
+        numero = obj.client.username
+        if not re.fullmatch(r"9\d{8}", numero):
+            return numero
+        nome = obj.client.get_full_name() or numero
+        return format_html(
+            '<a href="https://wa.me/351{}" target="_blank" rel="noopener" '
+            'onclick="return confirm(\'Abrir conversa no WhatsApp com {}?\')">{}</a>',
+            numero, nome, numero,
+        )
 
     def lookup_allowed(self, lookup, value, request=None):
         # Autoriza o filtro por sessão vindo da coluna "Inscritos" da lista
