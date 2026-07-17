@@ -54,6 +54,54 @@ class PhoneNormalizationTests(TestCase):
         self.assertTrue(form.is_valid(), form.errors)
 
 
+class SessionAdminFilterTests(TestCase):
+    """Os filtros de checkbox (estado/tempo) da lista de Sessões no admin."""
+
+    def setUp(self):
+        admin_user = User.objects.create_superuser(
+            username="admin-teste", password="segredo1"
+        )
+        self.client_http = Client()
+        self.client_http.force_login(admin_user)
+        service = ServiceType.objects.create(name="Aula", default_capacity=10)
+
+        def sessao(quando, cancelada=False):
+            return Session.objects.create(
+                service_type=service, start=quando,
+                duration_minutes=60, capacity=10, is_cancelled=cancelada,
+            )
+
+        agora = timezone.now()
+        self.agendada = sessao(agora + timedelta(days=1))
+        self.concluida = sessao(agora - timedelta(days=1))
+        self.cancelada_futura = sessao(agora + timedelta(days=2), cancelada=True)
+        self.cancelada_passada = sessao(agora - timedelta(days=2), cancelada=True)
+        self.url = "/admin/bookings/session/"
+
+    def _ids(self, params=""):
+        response = self.client_http.get(self.url + params)
+        return {s.pk for s in response.context["cl"].result_list}
+
+    def test_sem_filtro_mostra_tudo(self):
+        self.assertEqual(len(self._ids()), 4)
+
+    def test_filtro_um_estado(self):
+        self.assertEqual(self._ids("?estado=agendada"), {self.agendada.pk})
+
+    def test_filtro_combina_estados(self):
+        self.assertEqual(
+            self._ids("?estado=agendada,cancelada"),
+            {self.agendada.pk, self.cancelada_futura.pk, self.cancelada_passada.pk},
+        )
+
+    def test_estado_combinado_com_tempo(self):
+        # Ex.: "canceladas passadas" — a combinação que os checkboxes permitem.
+        self.assertEqual(
+            self._ids("?estado=cancelada&tempo=passadas"),
+            {self.cancelada_passada.pk},
+        )
+
+
 class DeleteRefundTests(TestCase):
     """Apagar (em vez de cancelar) não pode fazer desaparecer créditos."""
 

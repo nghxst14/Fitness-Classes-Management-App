@@ -1,0 +1,18 @@
+{# Filtro de admin com CHECKBOXES (multi-seleção) em vez dos links de #}
+{# escolha única nativos. Cada clique navega para o URL já calculado no #}
+{# filtro (bookings/admin.py: CheckboxFilter), que liga/desliga essa opção. #}
+<details data-filter-title="{{ title }}" open>
+  <summary>Por {{ title }}</summary>
+  <ul>
+    {% for choice in choices %}
+      <li>
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+          <input type="checkbox"
+                 {% if choice.selected %}checked{% endif %}
+                 onchange="window.location.href='{{ choice.query_string|iriencode }}'">
+          {{ choice.display }}
+        </label>
+      </li>
+    {% endfor %}
+  </ul>
+</details>

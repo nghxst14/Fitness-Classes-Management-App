@@ -1,5 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth.models import Group
+from django.db.models import Q
+from django.utils import timezone
+from django.utils.html import format_html
 
 from .models import Booking, Location, Pack, ServiceType, Session
 
@@ -29,6 +32,91 @@ class ServiceTypeAdmin(admin.ModelAdmin):
     search_fields = ("name",)
 
 
+class CheckboxFilter(admin.SimpleListFilter):
+    """
+    Base para filtros de multi-seleção com checkboxes.
+
+    O admin nativo só suporta escolha única (links). Aqui, o valor no URL é
+    uma lista separada por vírgulas (?estado=agendada,cancelada) e cada
+    checkbox liga/desliga a sua opção. O template está em
+    templates/admin/checkbox_filter.html.
+    """
+
+    template = "admin/checkbox_filter.html"
+
+    def value_list(self):
+        """As opções atualmente selecionadas, como lista."""
+        return self.value().split(",") if self.value() else []
+
+    def choices(self, changelist):
+        selected = set(self.value_list())
+        for lookup, title in self.lookup_choices:
+            # URL que este checkbox aponta: o estado atual com esta opção
+            # invertida (ligada se estava desligada, e vice-versa).
+            nova = selected ^ {lookup}
+            if nova:
+                query = changelist.get_query_string(
+                    {self.parameter_name: ",".join(sorted(nova))}
+                )
+            else:
+                query = changelist.get_query_string(remove=[self.parameter_name])
+            yield {
+                "selected": lookup in selected,
+                "query_string": query,
+                "display": title,
+            }
+
+
+class EstadoFilter(CheckboxFilter):
+    """Filtra por estado da sessão (combinável: ex. agendadas + canceladas)."""
+
+    title = "estado"
+    parameter_name = "estado"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("agendada", "Agendadas"),
+            ("concluida", "Concluídas"),
+            ("cancelada", "Canceladas"),
+        ]
+
+    def queryset(self, request, queryset):
+        selecionados = self.value_list()
+        if not selecionados:
+            return queryset
+        agora = timezone.now()
+        cond = Q()
+        if "agendada" in selecionados:
+            cond |= Q(is_cancelled=False, start__gte=agora)
+        if "concluida" in selecionados:
+            cond |= Q(is_cancelled=False, start__lt=agora)
+        if "cancelada" in selecionados:
+            cond |= Q(is_cancelled=True)
+        return queryset.filter(cond)
+
+
+class TempoFilter(CheckboxFilter):
+    """Filtra por tempo (futuras/passadas), combinável com o estado."""
+
+    title = "tempo"
+    parameter_name = "tempo"
+
+    def lookups(self, request, model_admin):
+        return [("futuras", "Futuras"), ("passadas", "Passadas")]
+
+    def queryset(self, request, queryset):
+        selecionados = self.value_list()
+        if not selecionados:
+            return queryset
+        agora = timezone.now()
+        cond = Q()
+        if "futuras" in selecionados:
+            cond |= Q(start__gte=agora)
+        if "passadas" in selecionados:
+            cond |= Q(start__lt=agora)
+        return queryset.filter(cond)
+
+
 class BookingInline(admin.TabularInline):
     model = Booking
     extra = 0
@@ -46,13 +134,29 @@ class SessionAdmin(admin.ModelAdmin):
         "capacity",
         "spots_taken",
         "spots_left",
-        "is_cancelled",
+        "estado",
     )
-    list_filter = ("service_type", "location", "is_cancelled")
+    # Mais recentes primeiro: sem isto, as aulas mais ANTIGAS apareciam no
+    # topo e o Sérgio teria de paginar até chegar à semana atual.
+    ordering = ("-start",)
+    list_filter = (EstadoFilter, TempoFilter, "service_type", "location")
     search_fields = ("title", "service_type__name")
     date_hierarchy = "start"
     autocomplete_fields = ("trainer", "location", "service_type")
     inlines = [BookingInline]
+
+    @admin.display(description="Estado")
+    def estado(self, obj):
+        """
+        Estado legível em vez do booleano is_cancelled invertido (que mostrava
+        uma cruz vermelha em aulas perfeitamente normais). O vermelho fica
+        reservado para o único caso realmente negativo: cancelada.
+        """
+        if obj.is_cancelled:
+            return format_html('<span style="color:#ba2121;">✘ Cancelada</span>')
+        if obj.is_past:
+            return format_html('<span style="color:#888;">Concluída</span>')
+        return format_html('<span style="color:#1c7430;">✔ Agendada</span>')
 
     @admin.display(description="Ocupadas")
     def spots_taken(self, obj):
