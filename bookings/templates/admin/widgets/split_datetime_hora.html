@@ -1,0 +1,16 @@
+{% load i18n %}
+{% comment %}
+  Data e hora empilhadas (a hora por baixo da data). O template do admin usa
+  <br>, mas a linha do campo é flex e aí o <br> não quebra — por isso usamos
+  dois blocos <p> dentro de um <div>.
+{% endcomment %}
+<div class="datetime" style="display:block;">
+  <p class="date" style="margin:0;">
+    {{ date_label }}
+    {% with widget=widget.subwidgets.0 %}{% include widget.template_name %}{% endwith %}
+  </p>
+  <p class="time" style="margin:6px 0 0;">
+    {{ time_label }}
+    {% with widget=widget.subwidgets.1 %}{% include widget.template_name %}{% endwith %}
+  </p>
+</div>

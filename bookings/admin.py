@@ -52,6 +52,10 @@ class HoraWidget(forms.Widget):
 class AdminSplitDateTimeHora(AdminSplitDateTime):
     """Como o seletor data+hora do admin, mas com a hora em duas caixas."""
 
+    # Template próprio que empilha a hora por baixo da data (o do admin usa
+    # <br>, que não quebra dentro da linha flex do campo).
+    template_name = "admin/widgets/split_datetime_hora.html"
+
     def __init__(self, attrs=None):
         # Mantém o seletor de data (AdminDateWidget: "Hoje" + calendário) e
         # troca só a parte da hora pelo HoraWidget.
