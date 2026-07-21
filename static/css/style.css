@@ -76,6 +76,10 @@ h2 {
 .nav { display: flex; align-items: center; gap: 1.1rem; flex-wrap: wrap; }
 .nav a { color: var(--white); font-size: 0.95rem; font-weight: 500; }
 .nav a:hover { color: var(--green); }
+/* Um botão dentro da nav (ex.: "Criar conta") mantém o texto escuro do .btn:
+   sem isto, a regra .nav a (branco) vencia por especificidade e o texto
+   ficava branco sobre o verde, sem contraste. */
+.nav a.btn, .nav a.btn:hover { color: #0c0c0c; }
 .nav-user { color: var(--muted); font-size: 0.9rem; }
 
 /* Botão hambúrguer: invisível em desktop, substitui a navegação em mobile. */
