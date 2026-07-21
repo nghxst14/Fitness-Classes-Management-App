@@ -12,6 +12,38 @@ from .forms import PhoneLoginForm, SignUpForm, normalizar_telemovel
 from .models import Booking, Location, ServiceType, Session, WeeklyProgramSlot
 
 
+class ScheduleNavLimitsTests(TestCase):
+    """O horário só navega 3 dias para trás e 14 para a frente."""
+
+    def setUp(self):
+        self.student = User.objects.create_user(username="912345678", password="x")
+        self.client_http = Client()
+        self.client_http.force_login(self.student)
+
+    def _ctx(self, date_str):
+        return self.client_http.get(reverse("schedule"), {"date": date_str}).context
+
+    def test_limite_para_tras(self):
+        hoje = timezone.localdate()
+        limite = hoje - timedelta(days=3)
+        # Pedir muito para trás fixa no limite e esconde a seta anterior.
+        ctx = self._ctx((hoje - timedelta(days=30)).strftime("%Y-%m-%d"))
+        self.assertEqual(ctx["day"], limite)
+        self.assertFalse(ctx["has_prev"])
+
+    def test_limite_para_a_frente(self):
+        hoje = timezone.localdate()
+        limite = hoje + timedelta(days=14)
+        ctx = self._ctx((hoje + timedelta(days=60)).strftime("%Y-%m-%d"))
+        self.assertEqual(ctx["day"], limite)
+        self.assertFalse(ctx["has_next"])
+
+    def test_hoje_tem_ambas_as_setas(self):
+        ctx = self._ctx(timezone.localdate().strftime("%Y-%m-%d"))
+        self.assertTrue(ctx["has_prev"])
+        self.assertTrue(ctx["has_next"])
+
+
 class WeeklyProgramGenerateTests(TestCase):
     """O gerador de aulas da semana a partir do programa semanal."""
 

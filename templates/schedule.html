@@ -7,12 +7,20 @@
   <h1>Horário</h1>
 
   <div class="day-nav">
-    <a class="day-arrow" href="?date={{ prev_day|date:'Y-m-d' }}" aria-label="Dia anterior">&#8249;</a>
+    {% if has_prev %}
+      <a class="day-arrow" href="?date={{ prev_day|date:'Y-m-d' }}" aria-label="Dia anterior">&#8249;</a>
+    {% else %}
+      <span class="day-arrow day-arrow-off" aria-hidden="true">&#8249;</span>
+    {% endif %}
     <div class="day-label">
       {{ day|date:"l, d/m/Y" }}
       {% if is_today %}<span class="day-today">hoje</span>{% endif %}
     </div>
-    <a class="day-arrow" href="?date={{ next_day|date:'Y-m-d' }}" aria-label="Dia seguinte">&#8250;</a>
+    {% if has_next %}
+      <a class="day-arrow" href="?date={{ next_day|date:'Y-m-d' }}" aria-label="Dia seguinte">&#8250;</a>
+    {% else %}
+      <span class="day-arrow day-arrow-off" aria-hidden="true">&#8250;</span>
+    {% endif %}
   </div>
 
   {% if sessions %}

@@ -47,15 +47,23 @@ def schedule(request):
     Lista as sessões de um dia, com navegação para trás/frente entre dias.
     O dia vem do parâmetro ?date=AAAA-MM-DD (por defeito, hoje).
     """
+    # Limites de navegação: nem sempre faz sentido andar para sempre. O aluno
+    # pode ver até 3 dias atrás (aulas recentes) e 14 dias à frente (marcar).
+    hoje = timezone.localdate()
+    dia_min = hoje - timedelta(days=3)
+    dia_max = hoje + timedelta(days=14)
+
     day_str = request.GET.get("date")
     try:
-        day = datetime.strptime(day_str, "%Y-%m-%d").date() if day_str else timezone.localdate()
+        day = datetime.strptime(day_str, "%Y-%m-%d").date() if day_str else hoje
     except (ValueError, TypeError):
-        day = timezone.localdate()
+        day = hoje
+    # Não deixar sair da janela permitida (mesmo por URL escrito à mão).
+    day = min(max(day, dia_min), dia_max)
 
     sessions = (
         Session.objects.filter(start__date=day, is_cancelled=False)
-        .select_related("service_type", "location", "trainer")
+        .select_related("service_type", "location")
         .order_by("start")
     )
     my_session_ids = set(
@@ -69,7 +77,10 @@ def schedule(request):
         "day": day,
         "prev_day": day - timedelta(days=1),
         "next_day": day + timedelta(days=1),
-        "is_today": day == timezone.localdate(),
+        "is_today": day == hoje,
+        # Para o template esconder a seta quando se chega ao limite.
+        "has_prev": day > dia_min,
+        "has_next": day < dia_max,
     }
     return render(request, "schedule.html", context)
 
