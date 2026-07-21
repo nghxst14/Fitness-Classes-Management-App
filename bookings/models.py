@@ -8,6 +8,8 @@ from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
 
+from accounts.models import CreditType
+
 
 class Location(models.Model):
     """Local onde decorre a sessão (ex.: 'Estúdio', 'Parque da Cidade')."""
@@ -41,6 +43,14 @@ class ServiceType(models.Model):
 
     name = models.CharField("Nome", max_length=100)
     description = models.TextField("Descrição", blank=True)
+    credit_type = models.CharField(
+        "Tipo de crédito",
+        max_length=10,
+        choices=CreditType.choices,
+        default=CreditType.SMALL_GROUP,
+        help_text="Que tipo de sessões esta aula gasta. Ex.: uma aula de "
+        "grupo é Small Group; um treino individual é PT.",
+    )
     default_capacity = models.PositiveIntegerField(
         "Lotação por defeito",
         default=1,
@@ -148,6 +158,11 @@ class Session(models.Model):
         return self.start < timezone.now()
 
     @property
+    def credit_type(self):
+        """O tipo de crédito que reservar esta aula gasta (vem do serviço)."""
+        return self.service_type.credit_type
+
+    @property
     def card_image(self):
         """Imagem de fundo do cartão, conforme o local é indoor/outdoor."""
         if self.location and self.location.kind == Location.OUTDOOR:
@@ -176,12 +191,13 @@ class Session(models.Model):
 
     def _refund_active_bookings(self):
         User = get_user_model()
+        campo = User.campo_saldo(self.credit_type)  # balde certo desta aula
         with transaction.atomic():
             for booking in self.bookings.filter(status=Booking.BOOKED):
                 booking.status = Booking.CANCELLED
                 booking.save(update_fields=["status"])
                 User.objects.filter(pk=booking.client_id).update(
-                    credits=F("credits") + 1
+                    **{campo: F(campo) + 1}
                 )
 
 
@@ -195,6 +211,13 @@ class Pack(models.Model):
     description = models.CharField(
         "Descrição curta", max_length=200, blank=True,
         help_text="Aparece no cartão do pacote no site.",
+    )
+    credit_type = models.CharField(
+        "Tipo de crédito",
+        max_length=10,
+        choices=CreditType.choices,
+        default=CreditType.SMALL_GROUP,
+        help_text="Que tipo de sessões este pacote dá ao aluno.",
     )
     number_of_sessions = models.PositiveIntegerField("Nº de sessões (créditos)")
     price = models.DecimalField(
@@ -376,6 +399,8 @@ def devolver_credito_ao_apagar_marcacao(sender, instance, **kwargs):
         and not instance.session.is_past
         and not instance.session.is_cancelled
     ):
-        get_user_model().objects.filter(pk=instance.client_id).update(
-            credits=F("credits") + 1
+        User = get_user_model()
+        campo = User.campo_saldo(instance.session.credit_type)
+        User.objects.filter(pk=instance.client_id).update(
+            **{campo: F(campo) + 1}
         )

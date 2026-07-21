@@ -5,10 +5,70 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from accounts.models import CreditType
 from .forms import PhoneLoginForm, SignUpForm, normalizar_telemovel
 from .models import Booking, Location, ServiceType, Session
 
 User = get_user_model()
+
+
+class CreditTypeIsolationTests(TestCase):
+    """
+    O crédito de um tipo (ex.: SG) nunca serve para uma aula de outro tipo
+    (ex.: PT), e reservar/cancelar mexe sempre no balde certo.
+    """
+
+    def setUp(self):
+        self.pt = ServiceType.objects.create(
+            name="PT Individual", default_capacity=1, credit_type=CreditType.PT
+        )
+        self.sessao_pt = Session.objects.create(
+            service_type=self.pt,
+            start=timezone.now() + timedelta(days=1),
+            duration_minutes=60, capacity=1,
+        )
+        # Aluno com saldo só de Small Group, nenhum de PT.
+        self.student = User.objects.create_user(
+            username="912345678", password="segredo1", sessoes_sg=5, sessoes_pt=0
+        )
+        self.client_http = Client()
+        self.client_http.force_login(self.student)
+
+    def test_credito_sg_nao_paga_aula_pt(self):
+        response = self.client_http.post(reverse("book", args=[self.sessao_pt.pk]))
+        self.assertRedirects(response, reverse("packages"))
+        self.student.refresh_from_db()
+        # O saldo de SG não foi tocado; continua sem reserva.
+        self.assertEqual(self.student.sessoes_sg, 5)
+        self.assertFalse(Booking.objects.filter(session=self.sessao_pt).exists())
+
+    def test_reserva_desconta_o_balde_certo(self):
+        self.student.sessoes_pt = 2
+        self.student.save(update_fields=["sessoes_pt"])
+        self.client_http.post(reverse("book", args=[self.sessao_pt.pk]))
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.sessoes_pt, 1)  # desconta PT
+        self.assertEqual(self.student.sessoes_sg, 5)  # SG intacto
+
+    def test_cancelar_devolve_ao_balde_certo(self):
+        self.student.sessoes_pt = 2
+        self.student.save(update_fields=["sessoes_pt"])
+        self.client_http.post(reverse("book", args=[self.sessao_pt.pk]))
+        booking = Booking.objects.get(session=self.sessao_pt, client=self.student)
+        self.client_http.post(reverse("cancel_booking", args=[booking.pk]))
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.sessoes_pt, 2)  # devolveu ao PT
+        self.assertEqual(self.student.sessoes_sg, 5)
+
+    def test_cancelar_aula_devolve_ao_balde_certo(self):
+        self.student.sessoes_pt = 1
+        self.student.save(update_fields=["sessoes_pt"])
+        self.client_http.post(reverse("book", args=[self.sessao_pt.pk]))
+        self.sessao_pt.is_cancelled = True
+        self.sessao_pt.save()  # cancelar a aula reembolsa
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.sessoes_pt, 1)
+        self.assertEqual(self.student.sessoes_sg, 5)
 
 
 class PhoneNormalizationTests(TestCase):
@@ -117,7 +177,7 @@ class SessionAdminActionTests(TestCase):
             duration_minutes=60, capacity=10,
         )
         self.aluno = User.objects.create_user(
-            username="912345678", password="x", credits=0
+            username="912345678", password="x", sessoes_sg=0
         )
         self.booking = Booking.objects.create(session=self.sessao, client=self.aluno)
         self.url = "/admin/bookings/session/"
@@ -134,7 +194,7 @@ class SessionAdminActionTests(TestCase):
         self.aluno.refresh_from_db()
         self.booking.refresh_from_db()
         self.assertTrue(self.sessao.is_cancelled)
-        self.assertEqual(self.aluno.credits, 1)
+        self.assertEqual(self.aluno.sessoes_sg, 1)
         self.assertEqual(self.booking.status, Booking.CANCELLED)
 
     def test_reativar_nao_inscreve_ninguem(self):
@@ -147,13 +207,13 @@ class SessionAdminActionTests(TestCase):
         # A marcação continua cancelada e o aluno fica com o crédito:
         # é ele que decide se se reinscreve.
         self.assertEqual(self.booking.status, Booking.CANCELLED)
-        self.assertEqual(self.aluno.credits, 1)
+        self.assertEqual(self.aluno.sessoes_sg, 1)
 
     def test_cancelar_duas_vezes_nao_devolve_em_dobro(self):
         self._cancelar()
         self._cancelar()  # já cancelada: deve ser ignorada
         self.aluno.refresh_from_db()
-        self.assertEqual(self.aluno.credits, 1)
+        self.assertEqual(self.aluno.sessoes_sg, 1)
 
     def test_get_nao_cancela(self):
         # Visitar o URL sem POST (ex.: pré-carregamento do browser) não
@@ -215,7 +275,7 @@ class DeleteRefundTests(TestCase):
     def setUp(self):
         self.service = ServiceType.objects.create(name="Aula", default_capacity=10)
         self.student = User.objects.create_user(
-            username="911111111", password="segredo1", credits=0
+            username="911111111", password="segredo1", sessoes_sg=0
         )
 
     def _sessao(self, quando):
@@ -231,7 +291,7 @@ class DeleteRefundTests(TestCase):
         Booking.objects.create(session=sessao, client=self.student)
         sessao.delete()  # apaga a marcação em cascata
         self.student.refresh_from_db()
-        self.assertEqual(self.student.credits, 1)
+        self.assertEqual(self.student.sessoes_sg, 1)
 
     def test_apagar_em_massa_no_queryset_tambem_devolve(self):
         # O admin "apagar selecionados" usa queryset.delete(), que não chama
@@ -240,14 +300,14 @@ class DeleteRefundTests(TestCase):
         Booking.objects.create(session=sessao, client=self.student)
         Session.objects.filter(pk=sessao.pk).delete()
         self.student.refresh_from_db()
-        self.assertEqual(self.student.credits, 1)
+        self.assertEqual(self.student.sessoes_sg, 1)
 
     def test_apagar_sessao_passada_nao_devolve(self):
         sessao = self._sessao(timezone.now() - timedelta(days=1))
         Booking.objects.create(session=sessao, client=self.student)
         sessao.delete()
         self.student.refresh_from_db()
-        self.assertEqual(self.student.credits, 0)
+        self.assertEqual(self.student.sessoes_sg, 0)
 
     def test_apagar_marcacao_ja_cancelada_nao_devolve_outra_vez(self):
         # O cancelamento normal já devolveu o crédito; apagar depois o registo
@@ -258,7 +318,7 @@ class DeleteRefundTests(TestCase):
         )
         booking.delete()
         self.student.refresh_from_db()
-        self.assertEqual(self.student.credits, 0)
+        self.assertEqual(self.student.sessoes_sg, 0)
 
 
 class SessionCancelRefundTests(TestCase):
@@ -275,7 +335,7 @@ class SessionCancelRefundTests(TestCase):
             capacity=10,
         )
         self.student = User.objects.create_user(
-            username="912345678", password="segredo1", credits=0
+            username="912345678", password="segredo1", sessoes_sg=0
         )
         self.booking = Booking.objects.create(
             session=self.session_obj, client=self.student, status=Booking.BOOKED
@@ -288,7 +348,7 @@ class SessionCancelRefundTests(TestCase):
         self.student.refresh_from_db()
         self.booking.refresh_from_db()
 
-        self.assertEqual(self.student.credits, 1)
+        self.assertEqual(self.student.sessoes_sg, 1)
         self.assertEqual(self.booking.status, Booking.CANCELLED)
 
     def test_saving_already_cancelled_session_does_not_refund_twice(self):
@@ -297,7 +357,7 @@ class SessionCancelRefundTests(TestCase):
         self.session_obj.save()  # segunda gravação, já estava cancelada
 
         self.student.refresh_from_db()
-        self.assertEqual(self.student.credits, 1)
+        self.assertEqual(self.student.sessoes_sg, 1)
 
 
 class BookViewCreditTests(TestCase):
@@ -312,7 +372,7 @@ class BookViewCreditTests(TestCase):
             capacity=1,
         )
         self.student = User.objects.create_user(
-            username="911111111", password="segredo1", credits=0
+            username="911111111", password="segredo1", sessoes_sg=0
         )
         self.client_http = Client()
         self.client_http.force_login(self.student)
@@ -325,14 +385,16 @@ class BookViewCreditTests(TestCase):
         )
 
     def test_book_with_credit_succeeds_and_deducts_one(self):
-        self.student.credits = 1
-        self.student.save(update_fields=["credits"])
+        self.student.sessoes_sg = 1
+        self.student.save(update_fields=["sessoes_sg"])
+        # (o serviço "PT Individual" deste teste fica no tipo por defeito, sg;
+        #  a isolação entre tipos é testada em CreditTypeIsolationTests)
 
         response = self.client_http.post(reverse("book", args=[self.session_obj.pk]))
         self.assertRedirects(response, reverse("my_bookings"))
 
         self.student.refresh_from_db()
-        self.assertEqual(self.student.credits, 0)
+        self.assertEqual(self.student.sessoes_sg, 0)
         self.assertTrue(
             Booking.objects.filter(
                 session=self.session_obj, client=self.student, status=Booking.BOOKED
@@ -354,7 +416,7 @@ class CancelBookingTests(TestCase):
             capacity=10,
         )
         self.student = User.objects.create_user(
-            username="922222222", password="segredo1", credits=0
+            username="922222222", password="segredo1", sessoes_sg=0
         )
         self.booking = Booking.objects.create(
             session=self.session_obj, client=self.student, status=Booking.BOOKED
@@ -367,7 +429,7 @@ class CancelBookingTests(TestCase):
 
         self.student.refresh_from_db()
         self.booking.refresh_from_db()
-        self.assertEqual(self.student.credits, 1)
+        self.assertEqual(self.student.sessoes_sg, 1)
         self.assertEqual(self.booking.status, Booking.CANCELLED)
 
     def test_cancelling_twice_only_refunds_once(self):
@@ -375,4 +437,4 @@ class CancelBookingTests(TestCase):
         self.client_http.post(reverse("cancel_booking", args=[self.booking.pk]))
 
         self.student.refresh_from_db()
-        self.assertEqual(self.student.credits, 1)
+        self.assertEqual(self.student.sessoes_sg, 1)

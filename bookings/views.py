@@ -103,18 +103,22 @@ def book(request, session_id):
             messages.error(request, "Esta sessão está esgotada.")
             return redirect("schedule")
 
-        # UPDATE condicional: só desconta o crédito se ainda houver saldo.
-        # Isto é atómico na base de dados, por isso dois pedidos em simultâneo
-        # (duplo clique, duas abas) não conseguem ambos ler o mesmo saldo
-        # antigo e reservar os dois com um único crédito.
+        # Desconta do balde correspondente ao tipo desta aula (SG/PT/Hybrid).
+        # UPDATE condicional: só desconta se ainda houver saldo desse tipo.
+        # Atómico na base de dados, por isso dois pedidos em simultâneo (duplo
+        # clique, duas abas) não conseguem ambos reservar com o mesmo crédito.
+        User = get_user_model()
+        campo = User.campo_saldo(session.credit_type)
         descontou = (
-            get_user_model()
-            .objects.filter(pk=request.user.pk, credits__gte=1)
-            .update(credits=F("credits") - 1)
+            User.objects.filter(pk=request.user.pk, **{f"{campo}__gte": 1})
+            .update(**{campo: F(campo) - 1})
         )
         if not descontou:
+            label = session.service_type.get_credit_type_display()
             messages.error(
-                request, "Não tens créditos disponíveis. Adquire um pacote para reservar."
+                request,
+                f"Não tens sessões de {label} disponíveis. "
+                "Adquire um pacote para reservar.",
             )
             return redirect("packages")
 
@@ -126,10 +130,12 @@ def book(request, session_id):
                 session=session, client=request.user, status=Booking.BOOKED
             )
 
-    request.user.refresh_from_db(fields=["credits"])
+    request.user.refresh_from_db(fields=[campo])
+    restantes = request.user.creditos_de(session.credit_type)
+    label = session.service_type.get_credit_type_display()
     messages.success(
         request,
-        f"Reserva feita! Ficaste com {request.user.credits} crédito(s).",
+        f"Reserva feita! Ficaste com {restantes} sessão(ões) de {label}.",
     )
     return redirect("my_bookings")
 
@@ -167,9 +173,10 @@ def cancel_booking(request, booking_id):
             status=Booking.CANCELLED
         )
         if cancelou:
-            get_user_model().objects.filter(pk=request.user.pk).update(
-                credits=F("credits") + 1
-            )
+            # Devolve ao balde do tipo desta aula.
+            User = get_user_model()
+            campo = User.campo_saldo(booking.session.credit_type)
+            User.objects.filter(pk=request.user.pk).update(**{campo: F(campo) + 1})
 
     if not cancelou:
         messages.error(request, "Esta marcação já não está ativa.")

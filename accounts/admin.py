@@ -30,13 +30,15 @@ class UserAdmin(BaseUserAdmin):
     list_display = (
         "username",
         "get_full_name",
-        "credits",
+        "sessoes_sg",
+        "sessoes_pt",
+        "sessoes_hybrid",
         "birth_date",
         "is_trainer",
         "is_staff",
     )
-    # Permite ao Sérgio atualizar os créditos direto na lista (após pagamento).
-    list_editable = ("credits",)
+    # Permite ao Sérgio atualizar os saldos direto na lista (após pagamento).
+    list_editable = ("sessoes_sg", "sessoes_pt", "sessoes_hybrid")
     list_filter = (BirthdayTodayFilter, "is_trainer", "is_staff", "is_active")
     search_fields = ("username", "first_name", "last_name")
     ordering = ("first_name", "last_name", "username")
@@ -52,7 +54,10 @@ class UserAdmin(BaseUserAdmin):
     fieldsets = (
         (None, {"fields": ("username", "password")}),
         ("Dados pessoais", {"fields": ("first_name", "last_name", "birth_date")}),
-        ("Créditos", {"fields": ("credits",)}),
+        (
+            "Sessões disponíveis",
+            {"fields": ("sessoes_sg", "sessoes_pt", "sessoes_hybrid")},
+        ),
         # Sem "groups"/"user_permissions": só fariam sentido com vários
         # funcionários no admin (ver nota em bookings/admin.py).
         (

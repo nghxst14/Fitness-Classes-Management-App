@@ -28,12 +28,13 @@ class LocationAdmin(admin.ModelAdmin):
 class ServiceTypeAdmin(admin.ModelAdmin):
     list_display = (
         "name",
+        "credit_type",
         "default_capacity",
         "is_online",
         "min_cancel_hours",
         "active",
     )
-    list_filter = ("is_online", "active")
+    list_filter = ("credit_type", "is_online", "active")
     search_fields = ("name",)
 
 
@@ -280,9 +281,11 @@ class SessionAdmin(admin.ModelAdmin):
 
 @admin.register(Pack)
 class PackAdmin(admin.ModelAdmin):
-    list_display = ("name", "number_of_sessions", "price", "order", "active")
+    list_display = (
+        "name", "credit_type", "number_of_sessions", "price", "order", "active"
+    )
     list_editable = ("order", "active")
-    list_filter = ("active",)
+    list_filter = ("credit_type", "active")
     search_fields = ("name",)
 
 

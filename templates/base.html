@@ -27,7 +27,6 @@
         <a href="{% url 'packages' %}">Pacotes</a>
         <a href="{% url 'my_bookings' %}">As minhas marcações</a>
         {% if user.is_staff %}<a href="/admin/">Administração</a>{% endif %}
-        <span class="nav-credits">{{ user.credits }} crédito{{ user.credits|pluralize }}</span>
         <span class="nav-user">Olá, {{ user.get_short_name|default:user.username }}</span>
         <form action="{% url 'logout' %}" method="post" class="inline-form">
           {% csrf_token %}
@@ -39,6 +38,23 @@
       {% endif %}
     </nav>
   </header>
+
+  {% if user.is_authenticated and not user.is_staff %}
+    {% comment %}
+      Saldos por tipo, centrados no topo. Cada tipo tem a sua cor categórica
+      (não um semáforo): distingue sem sugerir "bom/mau".
+    {% endcomment %}
+    <div class="saldos" role="status" aria-label="Sessões disponíveis">
+      {% for s in user.saldos_creditos %}
+        <a class="saldo-chip saldo-{{ s.tipo }}" href="{% url 'packages' %}"
+           title="Tens {{ s.quantidade }} sessão(ões) de {{ s.label }}. Toca para ver pacotes.">
+          <span class="saldo-dot"></span>
+          <span class="saldo-label">{{ s.label }}</span>
+          <span class="saldo-num">{{ s.quantidade }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
 
   <main class="container">
     {% if messages %}

@@ -201,6 +201,22 @@ h2 {
 .class-card > * { position: relative; z-index: 1; }
 .class-card-body { padding: 1.1rem 1.2rem; }
 .class-card-title { font-family: var(--font-display); font-weight: 600; font-size: 1.25rem; text-transform: uppercase; letter-spacing: 0.03em; }
+/* Selo do tipo de crédito no cartão (mesmas cores categóricas dos saldos). */
+.type-badge {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #0c0c0c;
+  background: var(--muted);
+}
+.type-sg { background: var(--sg); }
+.type-pt { background: var(--pt); }
+.type-hybrid { background: var(--hybrid); color: #fff; }
 .class-card-meta { color: #d7dad9; font-size: 0.9rem; margin-top: 0.2rem; }
 .class-card-row {
   display: flex;
@@ -355,15 +371,60 @@ h2 {
 .video-embed { position: relative; width: 100%; padding-bottom: 56.25%; height: 0; border-radius: var(--radius); overflow: hidden; background: #000; margin: 0.5rem 0 1rem; border: 1px solid var(--line); }
 .video-embed iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
 
-/* Saldo de créditos na navegação */
-.nav-credits {
-  background: rgba(93,214,44,0.15);
-  color: var(--green);
-  border: 1px solid rgba(93,214,44,0.35);
+/* Saldos por tipo (faixa centrada no topo).
+   Cores CATEGÓRICAS (não semáforo): cada tipo tem a sua identidade, sem
+   sugerir bom/mau. Verde da marca = Small Group; teal = PT; violeta = Hybrid. */
+:root {
+  --sg: #5dd62c;
+  --pt: #2cc5d6;
+  --hybrid: #9b7cf0;
+}
+.saldos {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.015);
+}
+.saldo-chip {
+  --accent: var(--muted);  /* substituído por tipo, abaixo */
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.85rem;
   border-radius: 999px;
-  padding: 0.2rem 0.7rem;
-  font-size: 0.85rem;
-  font-weight: 600;
+  border: 1px solid var(--line);
+  background: var(--dark);
+  color: var(--white);
+  line-height: 1;
+  transition: border-color 0.15s ease, transform 0.05s ease;
+}
+.saldo-chip:hover { border-color: var(--accent); color: var(--white); }
+.saldo-chip:active { transform: translateY(1px); }
+.saldo-sg { --accent: var(--sg); }
+.saldo-pt { --accent: var(--pt); }
+.saldo-hybrid { --accent: var(--hybrid); }
+.saldo-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+.saldo-label {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.saldo-num {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--accent);
+  min-width: 1ch;
+  text-align: center;
 }
 
 /* Navegação por dia (horário) */

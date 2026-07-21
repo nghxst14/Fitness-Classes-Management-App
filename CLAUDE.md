@@ -47,9 +47,14 @@ Estas decisões vieram de reuniões com o Sérgio e **substituem** ideias antiga
    o email não é usado. Formulários relabelam `username` como "Telemóvel"
    (ver `bookings/forms.py`: `SignUpForm`, `PhoneLoginForm`).
 
-2. **Sistema de créditos (tokens).** `User.credits` (inteiro). Cada reserva
-   gasta 1 crédito; cancelar devolve 1. Sem créditos, o aluno é enviado para os
-   pacotes. **1 crédito = qualquer aula** (todas custam 1). Créditos **não expiram**.
+2. **Sistema de créditos por TIPO.** Há 3 categorias — **Small Group (sg)**,
+   **PT (pt)**, **Hybrid (hybrid)** — em `accounts.models.CreditType`. Cada
+   aluno tem 3 saldos (`User.sessoes_sg/pt/hybrid`). Cada aula declara o seu
+   tipo no `ServiceType.credit_type`; reservar gasta 1 do balde desse tipo e
+   cancelar/apagar devolve ao mesmo balde. Um crédito SG **não** paga uma aula
+   PT. Cada `Pack` também tem `credit_type` (que balde enche). Créditos **não
+   expiram**. (Antes eram genéricos — `User.credits`; mudou em jul 2026 após o
+   Sérgio clarificar os pacotes.)
 
 3. **Pacotes vendidos pelo WhatsApp.** Modelo `Pack` (bookings). A página
    `/pacotes/` mostra os pacotes ativos; cada um tem um botão que abre o WhatsApp
@@ -92,8 +97,9 @@ Estas decisões vieram de reuniões com o Sérgio e **substituem** ideias antiga
 
 ## Modelos (resumo)
 
-- `accounts.User(AbstractUser)`: + `birth_date`, `credits`, `is_trainer`,
-  `created_at`. `username` = telemóvel. Propriedade `phone` devolve o username.
+- `accounts.User(AbstractUser)`: + `birth_date`, `sessoes_sg/pt/hybrid`,
+  `is_trainer`, `created_at`. `username` = telemóvel. Propriedade `phone`
+  devolve o username; `creditos_de(tipo)` e `saldos_creditos()` para os saldos.
 - `bookings.Location`: nome, `kind` (indoor/outdoor), morada, ativo.
 - `bookings.ServiceType`: nome, lotação por defeito, `is_online`,
   `min_cancel_hours` (antecedência p/ cancelar), ativo.

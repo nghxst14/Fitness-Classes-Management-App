@@ -13,6 +13,7 @@
     <ul class="card-list pack-list">
       {% for item in items %}
         <li class="card pack-card">
+          <span class="type-badge type-{{ item.pack.credit_type }}">{{ item.pack.get_credit_type_display }}</span>
           <div class="pack-head">
             <div class="pack-name">{{ item.pack.name }}</div>
             <div class="pack-sessions">{{ item.pack.number_of_sessions }} sess{{ item.pack.number_of_sessions|pluralize:"ão,ões" }}</div>

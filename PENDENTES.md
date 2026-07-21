@@ -8,9 +8,14 @@
 1. **Preços visíveis nos cartões?** O campo existe e aparece se preenchido.
    Preço à vista filtra curiosos; preço só na conversa dá margem de negociação.
    Decisão comercial do Sérgio.
-2. **Conteúdo real dos pacotes** — nomes, nº de sessões e preços finais.
-   Os atuais são provisórios: "Hybrid" tem 8 sessões por palpite e o
-   "Pack Experimenta" é fictício (serviu para testes).
+2. **Conteúdo real dos pacotes** — nomes, nº de sessões, preços E **tipo de
+   crédito** (SG/PT/Hybrid) finais. Os atuais são provisórios: "Hybrid" tem 8
+   sessões por palpite e o "Pack Experimenta" é fictício (serviu para testes).
+   Também confirmar o `credit_type` de cada Tipo de Serviço no admin (agora
+   todos ficaram Small Group por defeito, exceto o "PT Individual" de teste).
+
+3. **Natureza do "Hybrid"** — o André ia clarificar com o Sérgio se é mesmo um
+   3º tipo isolado (é o que está implementado) ou se tem regra especial.
 3. **Mensagens de WhatsApp personalizadas por pacote** — o campo existe no
    admin (`Pack.whatsapp_message`); agora usa a mensagem genérica. O Sérgio
    deve escrever as dele (pode ficar para a formação).

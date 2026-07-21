@@ -21,9 +21,9 @@
         <li class="class-card"
             {% if s.card_image %}style="background-image:url('{% static s.card_image %}')"{% endif %}>
           <div class="class-card-body">
+            <span class="type-badge type-{{ s.credit_type }}">{{ s.service_type.get_credit_type_display }}</span>
             <div class="class-card-title">{{ s.title|default:s.service_type.name }}</div>
             <div class="class-card-meta">
-              {% if s.trainer %}{{ s.trainer.get_full_name }} · {% endif %}
               {% if s.location %}{{ s.location.name }}{% else %}Online{% endif %}
             </div>
             <div class="class-card-meta">{{ s.start|time:"H:i" }} · {{ s.duration_minutes }}'</div>

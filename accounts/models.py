@@ -2,6 +2,20 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 
+class CreditType(models.TextChoices):
+    """
+    As 3 categorias de crédito. Cada aula (via o seu tipo de serviço) aceita
+    só o crédito da sua categoria; cada pacote enche só um destes baldes.
+
+    O valor curto ("sg", "pt", "hybrid") é também o sufixo do campo de saldo
+    no User — ex.: CreditType.SMALL_GROUP -> User.sessoes_sg. Manter alinhados.
+    """
+
+    SMALL_GROUP = "sg", "Small Group"
+    PT = "pt", "PT"
+    HYBRID = "hybrid", "Hybrid"
+
+
 class User(AbstractUser):
     """
     Utilizador da plataforma.
@@ -20,10 +34,19 @@ class User(AbstractUser):
         blank=True,
         help_text="Usada para o Sérgio ser avisado dos aniversários.",
     )
-    credits = models.PositiveIntegerField(
-        "Créditos (sessões)",
-        default=0,
-        help_text="Sessões disponíveis. Cada reserva gasta 1 crédito.",
+    # Saldos separados por tipo (ver CreditType). Cada reserva gasta 1 do
+    # balde correspondente à aula; cancelar/apagar devolve ao mesmo balde.
+    sessoes_sg = models.PositiveIntegerField(
+        "Sessões Small Group", default=0,
+        help_text="Sessões de Small Group disponíveis.",
+    )
+    sessoes_pt = models.PositiveIntegerField(
+        "Sessões PT", default=0,
+        help_text="Sessões de PT (individual) disponíveis.",
+    )
+    sessoes_hybrid = models.PositiveIntegerField(
+        "Sessões Hybrid", default=0,
+        help_text="Sessões de Hybrid disponíveis.",
     )
     is_trainer = models.BooleanField(
         "É treinador?",
@@ -44,3 +67,23 @@ class User(AbstractUser):
     def phone(self):
         """O telemóvel é o próprio username (identificador de login)."""
         return self.username
+
+    @staticmethod
+    def campo_saldo(credit_type):
+        """Nome do campo de saldo para um tipo de crédito (ex.: 'sessoes_sg')."""
+        return f"sessoes_{credit_type}"
+
+    def creditos_de(self, credit_type):
+        """Saldo atual de um dado tipo de crédito."""
+        return getattr(self, self.campo_saldo(credit_type))
+
+    def saldos_creditos(self):
+        """
+        Os 3 saldos para mostrar (topo do site). Iterar sobre CreditType faz
+        com que um 4º tipo, se algum dia existir, apareça automaticamente
+        (bastaria acrescentar o campo correspondente).
+        """
+        return [
+            {"tipo": valor, "label": label, "quantidade": self.creditos_de(valor)}
+            for valor, label in CreditType.choices
+        ]
