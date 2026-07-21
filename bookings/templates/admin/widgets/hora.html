@@ -1,7 +1,8 @@
-{# Widget de hora em duas caixas: [hora] : [minuto]. Ambas aceitam escrita
-   livre; o <datalist> só sugere valores (0-23 nas horas, 00/15/30/45 nos
-   minutos) sem impedir outros. #}
-<span class="hora-widget" style="display:inline-flex; align-items:center; gap:4px;">
+{% comment %}
+  Widget de hora em duas caixas: [hora] : [minuto]. Ambas aceitam escrita
+  livre; o <datalist> só sugere valores (0-23 nas horas, 00/15/30/45 nos
+  minutos) sem impedir outros.
+{% endcomment %}<span class="hora-widget" style="display:inline-flex; align-items:center; gap:4px;">
   <input type="number" name="{{ widget.name }}_h" value="{{ widget.hora }}"
          min="0" max="23" placeholder="hh" inputmode="numeric"
          list="{{ widget.attrs.id }}_horas" style="width:4.5em;">
