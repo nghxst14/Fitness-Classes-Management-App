@@ -1,15 +1,16 @@
 import re
+from datetime import timedelta
 
 from django.contrib import admin, messages
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
 
-from .models import Booking, Location, Pack, ServiceType, Session
+from .models import Booking, Location, Pack, ServiceType, Session, WeeklyProgramSlot
 
 # Escondemos a aba "Grupos" do admin: só faz sentido com vários funcionários
 # de permissões diferentes, e aqui o único utilizador do painel é o Sérgio
@@ -256,6 +257,8 @@ class SessionAdmin(admin.ModelAdmin):
         uma cruz vermelha em aulas perfeitamente normais). O vermelho fica
         reservado para o único caso realmente negativo: cancelada.
         """
+        if obj.pk is None or obj.start is None:
+            return "—"  # aula ainda por gravar (ecrã "Adicionar")
         if obj.is_cancelled:
             return format_html('<span style="color:#ba2121;">✘ Cancelada</span>')
         if obj.is_past:
@@ -327,3 +330,81 @@ class BookingAdmin(admin.ModelAdmin):
         if lookup == "session__id__exact":
             return True
         return super().lookup_allowed(lookup, value, request)
+
+
+@admin.register(WeeklyProgramSlot)
+class WeeklyProgramSlotAdmin(admin.ModelAdmin):
+    """
+    O programa semanal do Sérgio + o botão "Gerar aulas da semana", que cria
+    as sessões de uma semana a partir destes encaixes de uma só vez.
+    """
+
+    list_display = (
+        "weekday", "start_time", "service_type", "location", "capacity", "active"
+    )
+    list_editable = ("active",)
+    list_filter = ("weekday", "service_type", "active")
+    ordering = ("weekday", "start_time")
+    # Template com o botão "Gerar aulas da semana" no topo da lista.
+    change_list_template = "admin/bookings/weeklyprogramslot/change_list.html"
+
+    def get_urls(self):
+        extra = [
+            path(
+                "gerar-semana/",
+                self.admin_site.admin_view(self.gerar_semana_view),
+                name="bookings_weeklyprogramslot_gerar",
+            ),
+        ]
+        return extra + super().get_urls()
+
+    @staticmethod
+    def _proxima_segunda():
+        """A Segunda-feira da próxima semana (default do gerador)."""
+        hoje = timezone.localdate()
+        return hoje + timedelta(days=(7 - hoje.weekday()))
+
+    def gerar_semana_view(self, request):
+        if not self.has_add_permission(request):
+            raise PermissionDenied
+
+        if request.method == "POST":
+            try:
+                segunda = timezone.datetime.strptime(
+                    request.POST.get("segunda", ""), "%Y-%m-%d"
+                ).date()
+            except ValueError:
+                self.message_user(
+                    request, "Data inválida.", messages.ERROR
+                )
+                return redirect("admin:bookings_weeklyprogramslot_gerar")
+
+            # Recuar para a Segunda dessa semana (se escolheu outro dia).
+            segunda = segunda - timedelta(days=segunda.weekday())
+            criadas = saltadas = 0
+            for slot in WeeklyProgramSlot.objects.filter(active=True):
+                data = segunda + timedelta(days=slot.weekday)
+                _, criada = slot.criar_sessao(data)
+                criadas += 1 if criada else 0
+                saltadas += 0 if criada else 1
+
+            fim = segunda + timedelta(days=6)
+            self.message_user(
+                request,
+                f"Semana de {segunda:%d/%m} a {fim:%d/%m}: {criadas} aula(s) "
+                f"criada(s), {saltadas} já existia(m) (não duplicadas).",
+                messages.SUCCESS,
+            )
+            return redirect("admin:bookings_session_changelist")
+
+        # GET: página de confirmação com a data e a pré-visualização.
+        contexto = {
+            **self.admin_site.each_context(request),
+            "title": "Gerar aulas da semana",
+            "segunda": self._proxima_segunda(),
+            "slots": WeeklyProgramSlot.objects.filter(active=True),
+            "opts": self.model._meta,
+        }
+        return render(
+            request, "admin/bookings/weeklyprogramslot/gerar_semana.html", contexto
+        )

@@ -5,9 +5,60 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from datetime import time
+
 from accounts.models import CreditType
 from .forms import PhoneLoginForm, SignUpForm, normalizar_telemovel
-from .models import Booking, Location, ServiceType, Session
+from .models import Booking, Location, ServiceType, Session, WeeklyProgramSlot
+
+
+class WeeklyProgramGenerateTests(TestCase):
+    """O gerador de aulas da semana a partir do programa semanal."""
+
+    def setUp(self):
+        admin_user = User.objects.create_superuser(
+            username="admin-teste", password="segredo1"
+        )
+        self.client_http = Client()
+        self.client_http.force_login(admin_user)
+        self.service = ServiceType.objects.create(name="Aula", default_capacity=10)
+        # Seg 08:00 e Sáb 09:30.
+        WeeklyProgramSlot.objects.create(
+            weekday=0, start_time=time(8, 0), service_type=self.service
+        )
+        WeeklyProgramSlot.objects.create(
+            weekday=5, start_time=time(9, 30), service_type=self.service
+        )
+        self.url = "/admin/bookings/weeklyprogramslot/gerar-semana/"
+
+    def _gerar(self, segunda="2026-08-03"):  # 2026-08-03 é uma Segunda
+        return self.client_http.post(self.url, {"segunda": segunda})
+
+    def test_gera_uma_sessao_por_encaixe(self):
+        self._gerar()
+        self.assertEqual(Session.objects.count(), 2)
+        # Confirma dia e hora corretos (Seg 03/08 08:00, Sáb 08/08 09:30).
+        horas = sorted(
+            (timezone.localtime(s.start).strftime("%a %H:%M")
+             for s in Session.objects.all())
+        )
+        self.assertEqual(len(horas), 2)
+
+    def test_gerar_duas_vezes_nao_duplica(self):
+        self._gerar()
+        self._gerar()  # segundo clique na mesma semana
+        self.assertEqual(Session.objects.count(), 2)
+
+    def test_encaixe_inativo_nao_gera(self):
+        WeeklyProgramSlot.objects.filter(weekday=5).update(active=False)
+        self._gerar()
+        self.assertEqual(Session.objects.count(), 1)
+
+    def test_data_no_meio_da_semana_recua_para_segunda(self):
+        # Quarta 05/08 deve gerar a mesma semana que a Segunda 03/08.
+        self._gerar(segunda="2026-08-05")
+        seg = Session.objects.get(start__week_day=2)  # 2 = Segunda no Django
+        self.assertEqual(timezone.localtime(seg.start).strftime("%d/%m"), "03/08")
 
 User = get_user_model()
 
@@ -221,6 +272,12 @@ class SessionAdminActionTests(TestCase):
         self.client_http.get(f"{self.url}{self.sessao.pk}/cancelar/")
         self.sessao.refresh_from_db()
         self.assertFalse(self.sessao.is_cancelled)
+
+    def test_pagina_adicionar_sessao_abre(self):
+        # Regressão: o campo "estado" chamava is_past numa sessão sem data
+        # (start=None) no ecrã Adicionar, rebentando com TypeError.
+        response = self.client_http.get(f"{self.url}add/")
+        self.assertEqual(response.status_code, 200)
 
     def test_ficha_da_sessao_nao_mostra_treinador(self):
         response = self.client_http.get(f"{self.url}{self.sessao.pk}/change/")

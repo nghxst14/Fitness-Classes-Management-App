@@ -1,0 +1,12 @@
+{% extends "admin/change_list.html" %}
+
+{# Botão "Gerar aulas da semana" no topo da lista do programa semanal. #}
+{% block object-tools-items %}
+  <li>
+    <a href="{% url 'admin:bookings_weeklyprogramslot_gerar' %}" class="addlink"
+       style="background:#1c7430;">
+      Gerar aulas da semana
+    </a>
+  </li>
+  {{ block.super }}
+{% endblock %}

@@ -74,6 +74,10 @@ Estas decisões vieram de reuniões com o Sérgio e **substituem** ideias antiga
 
 6. **Horário navegável por dia.** O Sérgio marca a semana toda de uma vez; o
    aluno anda para trás/frente entre dias no `/horario/` (`?date=AAAA-MM-DD`).
+   Para não marcar aula a aula, há o **Programa semanal** (`WeeklyProgramSlot`):
+   encaixes fixos (dia+hora+tipo+local por defeito) e um botão no admin
+   "Gerar aulas da semana" que cria as sessões de uma semana de uma vez, sem
+   duplicar. O horário é fixo; tipo/local ajustam-se por semana nas sessões.
 
 7. **Aba de vídeos removida DE TODO** (jul 2026). O cliente decidiu que não é
    necessária. A app `library` foi apagada por completo (código, tabelas,

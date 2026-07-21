@@ -1,0 +1,44 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+  <p>
+    Isto cria as aulas de uma semana a partir do programa semanal
+    (<strong>{{ slots|length }}</strong> encaixe(s) ativo(s)). As aulas que já
+    existirem no mesmo dia e hora são saltadas — podes clicar sem medo de
+    duplicar. Depois é só ajustar as sessões dessa semana onde for preciso.
+  </p>
+
+  <form method="post" action="{% url 'admin:bookings_weeklyprogramslot_gerar' %}">
+    {% csrf_token %}
+    <p>
+      <label for="segunda"><strong>Segunda-feira da semana a gerar:</strong></label><br>
+      <input type="date" id="segunda" name="segunda" value="{{ segunda|date:'Y-m-d' }}" required>
+      <span class="help">Se escolheres outro dia, usa-se a Segunda dessa semana.</span>
+    </p>
+
+    <div class="submit-row">
+      <input type="submit" value="Gerar aulas" class="default">
+      <a href="{% url 'admin:bookings_weeklyprogramslot_changelist' %}" class="button cancel-link">Cancelar</a>
+    </div>
+  </form>
+
+  {% if slots %}
+    <h2>Encaixes que vão ser gerados</h2>
+    <table>
+      <thead>
+        <tr><th>Dia</th><th>Hora</th><th>Tipo</th><th>Local</th><th>Lotação</th></tr>
+      </thead>
+      <tbody>
+        {% for slot in slots %}
+          <tr>
+            <td>{{ slot.get_weekday_display }}</td>
+            <td>{{ slot.start_time|time:"H:i" }}</td>
+            <td>{{ slot.service_type.name }}</td>
+            <td>{{ slot.location.name|default:"Online" }}</td>
+            <td>{{ slot.capacity|default:slot.service_type.default_capacity }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+{% endblock %}

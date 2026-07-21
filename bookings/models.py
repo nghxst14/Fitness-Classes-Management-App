@@ -241,6 +241,84 @@ class Pack(models.Model):
         return f"{self.name} ({self.number_of_sessions} sessões)"
 
 
+class WeeklyProgramSlot(models.Model):
+    """
+    Um encaixe fixo do programa semanal do Sérgio (ex.: "toda a 2ª às 08:00").
+
+    É o "molde" a partir do qual se geram as sessões de uma semana com um
+    clique. O que é fixo é o **horário**; o tipo de serviço e o local aqui são
+    apenas o valor por defeito (o Sérgio ajusta as sessões geradas de cada
+    semana, que variam). Ver o admin: ação "Gerar aulas da semana".
+    """
+
+    WEEKDAYS = [
+        (0, "Segunda"), (1, "Terça"), (2, "Quarta"), (3, "Quinta"),
+        (4, "Sexta"), (5, "Sábado"), (6, "Domingo"),
+    ]
+
+    weekday = models.IntegerField("Dia da semana", choices=WEEKDAYS)
+    start_time = models.TimeField("Hora de início")
+    service_type = models.ForeignKey(
+        ServiceType,
+        on_delete=models.PROTECT,
+        related_name="program_slots",
+        verbose_name="Tipo de serviço (por defeito)",
+    )
+    location = models.ForeignKey(
+        Location,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="program_slots",
+        verbose_name="Local (por defeito)",
+        help_text="Vazio = sessão online.",
+    )
+    capacity = models.PositiveIntegerField(
+        "Lotação",
+        null=True,
+        blank=True,
+        help_text="Vazio usa a lotação por defeito do tipo de serviço.",
+    )
+    duration_minutes = models.PositiveIntegerField("Duração (minutos)", default=60)
+    active = models.BooleanField("Ativo", default=True)
+
+    class Meta:
+        verbose_name = "Aula recorrente (programa semanal)"
+        verbose_name_plural = "Programa semanal"
+        ordering = ["weekday", "start_time"]
+
+    def __str__(self):
+        return f"{self.get_weekday_display()} {self.start_time:%H:%M} — {self.service_type.name}"
+
+    def criar_sessao(self, data):
+        """
+        Cria a Session desta linha na `data` dada (um datetime.date), em hora
+        de Lisboa. Devolve (sessao, criada). Não cria se já existir uma sessão
+        no mesmo instante e tipo — assim clicar "gerar" duas vezes não duplica.
+        """
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        from django.conf import settings
+
+        inicio = datetime.combine(data, self.start_time).replace(
+            tzinfo=ZoneInfo(settings.TIME_ZONE)
+        )
+        ja_existe = Session.objects.filter(
+            start=inicio, service_type=self.service_type
+        ).exists()
+        if ja_existe:
+            return None, False
+        sessao = Session.objects.create(
+            service_type=self.service_type,
+            location=self.location,
+            start=inicio,
+            duration_minutes=self.duration_minutes,
+            capacity=self.capacity or self.service_type.default_capacity,
+        )
+        return sessao, True
+
+
 class ClientPack(models.Model):
     """
     Um pack efetivamente comprado por um aluno.

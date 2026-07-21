@@ -40,4 +40,8 @@
   escondido do admin. Tabela está vazia; recomendação: apagar.
 - **Limpar dados de teste antes do deploy** — utilizadores User1/User2/User3
   e Ana Teste (913000001), aulas de teste e pacotes fictícios.
+- **Programa semanal**: o preset (23 encaixes) está pré-preenchido com tudo em
+  "Aula de Grupo" (Small Group) / Estúdio por defeito. O Sérgio deve rever o
+  tipo e o local de cada encaixe no admin (Programa semanal) antes de o usar
+  a sério, e o número real de aulas por horário (varia semana a semana).
 - **Mini-guia do admin para o Sérgio** (formação de entrega).
