@@ -95,6 +95,36 @@ class WeeklyProgramGenerateTests(TestCase):
 User = get_user_model()
 
 
+class HoraWidgetTests(TestCase):
+    """O widget de hora (duas caixas) aceita hora só e hora:minuto escritos."""
+
+    def _campo(self):
+        from django import forms
+        from bookings.admin import AdminSplitDateTimeHora
+        return forms.SplitDateTimeField(widget=AdminSplitDateTimeHora())
+
+    def _hora(self, h, m):
+        campo = self._campo()
+        data = {"start_0": "2026-08-10", "start_1_h": h, "start_1_m": m}
+        valor = campo.widget.value_from_datadict(data, {}, "start")
+        return campo.clean(valor)
+
+    def test_hora_sem_minuto_fica_em_ponto(self):
+        # Escrever só "9" na hora deve dar 09:00.
+        dt = self._hora("9", "")
+        self.assertEqual((dt.hour, dt.minute), (9, 0))
+
+    def test_hora_e_minuto_escritos(self):
+        # "13" : "02" à mão deve dar 13:02.
+        dt = self._hora("13", "02")
+        self.assertEqual((dt.hour, dt.minute), (13, 2))
+
+    def test_minuto_de_uma_casa(self):
+        # "21" : "5" deve dar 21:05 (strptime é tolerante).
+        dt = self._hora("21", "5")
+        self.assertEqual((dt.hour, dt.minute), (21, 5))
+
+
 class CardImageTests(TestCase):
     """A imagem de fundo do cartão conforme o local (ou online)."""
 

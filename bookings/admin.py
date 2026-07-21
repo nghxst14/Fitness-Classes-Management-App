@@ -1,7 +1,9 @@
 import re
-from datetime import timedelta
+from datetime import time as dt_time, timedelta
 
+from django import forms
 from django.contrib import admin, messages
+from django.contrib.admin.widgets import AdminDateWidget, AdminSplitDateTime
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
@@ -11,6 +13,49 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from .models import Booking, Location, Pack, ServiceType, Session, WeeklyProgramSlot
+
+
+class HoraWidget(forms.Widget):
+    """
+    Hora em duas caixas: [hora] : [minuto]. A hora aceita 0-23 e o minuto
+    sugere 00/15/30/45, mas ambas permitem escrita livre (ex.: 13:02).
+    Substitui a caixa única onde era preciso escrever "21:00" à mão.
+    """
+
+    template_name = "admin/widgets/hora.html"
+
+    def _split(self, value):
+        """Parte o valor (datetime.time ou string 'HH:MM...') em hora, minuto."""
+        if value in (None, ""):
+            return "", ""
+        if isinstance(value, str):
+            partes = value.split(":")
+            return partes[0], (partes[1] if len(partes) > 1 else "")
+        return str(value.hour), f"{value.minute:02d}"
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        hora, minuto = self._split(value)
+        context["widget"]["hora"] = hora
+        context["widget"]["minuto"] = minuto
+        context["widget"]["horas_lista"] = list(range(24))
+        return context
+
+    def value_from_datadict(self, data, files, name):
+        hora = (data.get(f"{name}_h") or "").strip()
+        minuto = (data.get(f"{name}_m") or "").strip()
+        if not hora and not minuto:
+            return ""
+        return f"{hora or 0}:{minuto or 0}"
+
+
+class AdminSplitDateTimeHora(AdminSplitDateTime):
+    """Como o seletor data+hora do admin, mas com a hora em duas caixas."""
+
+    def __init__(self, attrs=None):
+        # Mantém o seletor de data (AdminDateWidget: "Hoje" + calendário) e
+        # troca só a parte da hora pelo HoraWidget.
+        forms.MultiWidget.__init__(self, [AdminDateWidget, HoraWidget], attrs)
 
 # Escondemos a aba "Grupos" do admin: só faz sentido com vários funcionários
 # de permissões diferentes, e aqui o único utilizador do painel é o Sérgio
@@ -149,6 +194,16 @@ class SessionAdmin(admin.ModelAdmin):
     date_hierarchy = "start"
     autocomplete_fields = ("location", "service_type")
     inlines = [BookingInline]
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        # A hora do início passa a ter duas caixas (hora : minuto), em vez da
+        # caixa única onde era preciso escrever "21:00" à mão.
+        if db_field.name == "start":
+            return forms.SplitDateTimeField(
+                label=db_field.verbose_name,
+                widget=AdminSplitDateTimeHora(),
+            )
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
     # Cancelar NÃO tem ação em massa (decisão após um cancelamento acidental
     # com seleção múltipla): faz-se aula a aula, pelo botão na ficha da
     # sessão, com confirmação. Reativar mantém-se em massa (não mexe em
