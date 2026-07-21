@@ -95,6 +95,30 @@ class WeeklyProgramGenerateTests(TestCase):
 User = get_user_model()
 
 
+class CardImageTests(TestCase):
+    """A imagem de fundo do cartão conforme o local (ou online)."""
+
+    def setUp(self):
+        self.service = ServiceType.objects.create(name="Aula", default_capacity=10)
+
+    def _sessao(self, location):
+        return Session.objects.create(
+            service_type=self.service, location=location,
+            start=timezone.now() + timedelta(days=1),
+            duration_minutes=60, capacity=10,
+        )
+
+    def test_online_usa_imagem_online(self):
+        sessao = self._sessao(None)  # sem local = online
+        self.assertEqual(sessao.card_image, "img/brand/class-online.jpg")
+
+    def test_indoor_e_outdoor(self):
+        indoor = self._sessao(Location.objects.create(name="Est", kind=Location.INDOOR))
+        outdoor = self._sessao(Location.objects.create(name="Par", kind=Location.OUTDOOR))
+        self.assertEqual(indoor.card_image, "img/brand/class-indoor.jpg")
+        self.assertEqual(outdoor.card_image, "img/brand/class-outdoor.jpg")
+
+
 class CreditTypeIsolationTests(TestCase):
     """
     O crédito de um tipo (ex.: SG) nunca serve para uma aula de outro tipo

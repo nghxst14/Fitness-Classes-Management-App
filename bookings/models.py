@@ -164,12 +164,15 @@ class Session(models.Model):
 
     @property
     def card_image(self):
-        """Imagem de fundo do cartão, conforme o local é indoor/outdoor."""
+        """
+        Imagem de fundo do cartão: outdoor/indoor conforme o local; se não há
+        local, é uma sessão online e usa a imagem própria.
+        """
         if self.location and self.location.kind == Location.OUTDOOR:
             return "img/brand/class-outdoor.jpg"
         if self.location and self.location.kind == Location.INDOOR:
             return "img/brand/class-indoor.jpg"
-        return ""
+        return "img/brand/class-online.jpg"
 
     def save(self, *args, **kwargs):
         """
