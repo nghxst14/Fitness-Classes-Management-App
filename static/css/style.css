@@ -121,6 +121,9 @@ h2 {
 
 /* Conteúdo */
 .container { max-width: 820px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
+/* Quando a faixa de saldos está logo acima, o topo do conteúdo já tem
+   respiro suficiente — encurta o espaço até ao título. */
+.saldos + .container { padding-top: 0.85rem; }
 
 /* Hero */
 .hero {
