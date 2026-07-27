@@ -1,7 +1,10 @@
 # Gestão de Treinos — web app (Django)
 
-Plataforma para gerir marcações de aulas/sessões, packs e uma biblioteca de
-vídeos de treino. Substitui a marcação por WhatsApp por algo centralizado.
+Plataforma (marca **RESTART NOW**) para o aluno se registar, ver o horário e
+reservar aulas gastando créditos; os créditos compram-se em pacotes negociados
+pelo WhatsApp. Substitui a marcação por WhatsApp por algo centralizado.
+
+> Contexto completo do projeto (ao pormenor) em **`CLAUDE.md`**.
 
 Stack: **Django 5 + templates + SQLite** (em desenvolvimento).
 Em produção passaremos para PostgreSQL (Bloco 5).

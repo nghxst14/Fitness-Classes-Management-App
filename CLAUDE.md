@@ -1,169 +1,357 @@
 # CLAUDE.md — Contexto do projeto (RESTART NOW)
 
-> Ficheiro de contexto para o assistente. Lê isto primeiro. Está em português
-> porque todo o projeto (UI, comentários, admin) é em português de Portugal.
+> Ficheiro de contexto para qualquer assistente de IA. **Lê isto primeiro.**
+> Está em português de Portugal porque **todo** o projeto (UI, mensagens,
+> admin, comentários de código) é em pt-PT. Mantém tudo em pt-PT.
+>
+> Outros documentos no repositório: `GUIA_COMANDOS.md` (comandos passo a passo
+> para o André), `PENDENTES.md` (decisões à espera do cliente), `README.md`
+> (arranque), `static/img/brand/MARCA.md` (paleta), `docs/referencias-ui.md`
+> (inspiração visual).
 
-## O que é
+---
 
-Plataforma web para um **personal trainer / estúdio** (marca **RESTART NOW**,
-cliente: **Sérgio**). Substitui a marcação de aulas por WhatsApp por um site
-onde os alunos se registam, veem o horário, reservam aulas com um sistema de
-**créditos**, e compram pacotes falando com o treinador pelo WhatsApp.
+## 1. O que é
 
-É o **primeiro projeto real** do André (programador júnior). O André está a
-aprender ao mesmo tempo — explica as decisões, não despejes código sem contexto.
-A prioridade é entregar algo simples e funcional até **início de setembro**
-(início da nova época do cliente).
+Plataforma web para um **personal trainer / estúdio** — marca **RESTART NOW**,
+cliente **Sérgio**. Substitui a marcação de aulas por WhatsApp por um site onde
+os alunos se registam, veem o horário, e **reservam aulas gastando créditos**.
+Os créditos compram-se em **pacotes**, negociados com o treinador pelo WhatsApp
+(o pagamento é tratado por ele, fora da app).
 
-## Stack
+É o **primeiro projeto real** do André (programador júnior, a aprender). Ao
+trabalhar com ele: **explica as decisões, não despejes código sem contexto**,
+e quando ele pede uma explicação para decidir algo, **explica e espera** — não
+executes logo. Prioridade: entregar algo **simples e funcional** até **início
+de setembro de 2026** (nova época do cliente). Manter tudo simples é um
+requisito, não um acaso — o cliente é pequeno e quer pouca complexidade.
 
-- **Django 5** + **templates** (server-rendered, sem React) + um pouco de JS.
-- **SQLite** em desenvolvimento; **PostgreSQL** em produção (no deploy, ainda por fazer).
-- Sem Docker. Ambiente virtual `venv`. Ver `GUIA_COMANDOS.md` para os comandos.
-- Vídeos (quando existiam) eram incorporados de YouTube/Vimeo, nunca alojados.
+---
 
-## Como correr
+## 2. Stack e como correr
+
+- **Django 5.1** + templates server-rendered (sem React) + JS mínimo (vanilla).
+- **SQLite** em desenvolvimento; **PostgreSQL** em produção (deploy por fazer).
+- Sem Docker. Ambiente virtual `venv/`. Windows + PowerShell.
+- **Python 3.10+**. Dependência única em dev: Django (ver `requirements.txt`;
+  as de produção — gunicorn, psycopg, dj-database-url, whitenoise — estão lá
+  comentadas para o deploy).
 
 ```powershell
 venv\Scripts\activate
-python manage.py runserver
+python manage.py runserver          # http://127.0.0.1:8000/  (site) e /admin/
+python manage.py test accounts bookings   # 49 testes, todos a passar
 ```
-Migrar só quando os modelos mudam: `makemigrations` + `migrate`.
-Detalhes completos em `GUIA_COMANDOS.md`.
+`makemigrations` + `migrate` só quando os modelos mudam. Ao mexer no CSS, o
+browser cacheia — usar **Ctrl+F5**. Detalhes completos em `GUIA_COMANDOS.md`.
 
-## Estrutura
+**Git/GitHub:** o repositório está ligado a
+`github.com/nghxst14/Fitness-Classes-Management-App` (privado, via `gh` CLI).
+Fluxo por commit: `git add -A` → `git commit` → `git push`. O assistente faz
+estes passos pelo André. **Nota PowerShell 5.1:** aspas duplas na mensagem de
+commit partem o parser — escrever mensagens sem aspas duplas.
 
-- `config/` — settings, urls, wsgi.
-- `accounts/` — modelo de utilizador personalizado (`User`) + login com throttle.
-- `bookings/` — o núcleo: locais, tipos de serviço, sessões, reservas, pacotes.
-- `templates/`, `static/` — HTML e CSS/JS. Marca em `static/img/brand/`.
+---
 
-## Modelo de negócio e decisões-chave (importante)
+## 3. Estrutura do repositório
 
-Estas decisões vieram de reuniões com o Sérgio e **substituem** ideias antigas:
+- `config/` — `settings.py`, `urls.py`, `wsgi.py` (projeto Django "config").
+- `accounts/` — app do utilizador:
+  - `models.py` — `User` (AbstractUser) + enum `CreditType`.
+  - `views.py` — `ThrottledLoginView` (login com limite de tentativas).
+  - `admin.py` — admin dos Utilizadores + filtro "Faz anos hoje".
+  - `tests.py` — testes do throttle de login.
+- `bookings/` — o núcleo do negócio:
+  - `models.py` — `Location`, `ServiceType`, `Session`, `Pack`, `ClientPack`,
+    `WeeklyProgramSlot`, `Booking` + sinal `pre_delete` de reembolso.
+  - `views.py` — páginas do site (home, signup, schedule, book, my_bookings,
+    cancel_booking, packages).
+  - `forms.py` — `SignUpForm`, `PhoneLoginForm`, `normalizar_telemovel()`.
+  - `admin.py` — **muita** personalização (ver secção 7).
+  - `urls.py` — rotas das páginas do site.
+  - `tests.py` — a maioria dos testes.
+  - `templates/admin/widgets/` — templates dos widgets de admin (têm de estar
+    numa pasta `templates/` de app, não na de projeto).
+- `templates/` — HTML do site (`base.html`, `base_auth.html`, `home.html`,
+  `schedule.html`, `packages.html`, `my_bookings.html`, `registration/*`) e
+  overrides do admin (`templates/admin/*`).
+- `static/` — `css/style.css` (tema do site), imagens da marca em
+  `static/img/brand/`.
 
-1. **Login por número de telemóvel**, não email. O número é guardado no campo
+---
+
+## 4. Modelo de negócio e decisões-chave
+
+Estas decisões vieram de reuniões com o Sérgio e **substituem** ideias antigas.
+
+1. **Login por número de telemóvel**, não email. O número guarda-se no campo
    `username` do Django (é o identificador de login). O Sérgio vive no WhatsApp;
-   o email não é usado. Formulários relabelam `username` como "Telemóvel"
-   (ver `bookings/forms.py`: `SignUpForm`, `PhoneLoginForm`).
+   o email não é usado em lado nenhum. Os formulários relabelam `username` como
+   "Telemóvel". Há **normalização**: "912 345 678", "+351912345678" e
+   "912345678" viram todos `912345678` (`normalizar_telemovel` em `forms.py`).
+   O registo valida o formato (9 dígitos a começar por 9) e recusa duplicados;
+   o login **só normaliza** (para não bloquear contas de staff como "admin").
 
-2. **Sistema de créditos por TIPO.** Há 3 categorias — **Small Group (sg)**,
-   **PT (pt)**, **Hybrid (hybrid)** — em `accounts.models.CreditType`. Cada
-   aluno tem 3 saldos (`User.sessoes_sg/pt/hybrid`). Cada aula declara o seu
-   tipo no `ServiceType.credit_type`; reservar gasta 1 do balde desse tipo e
-   cancelar/apagar devolve ao mesmo balde. Um crédito SG **não** paga uma aula
-   PT. Cada `Pack` também tem `credit_type` (que balde enche). Créditos **não
-   expiram**. (Antes eram genéricos — `User.credits`; mudou em jul 2026 após o
-   Sérgio clarificar os pacotes.)
+2. **Créditos por TIPO** (decisão de jul 2026 — antes eram genéricos). Há 3
+   categorias em `accounts.models.CreditType`: **Small Group (`sg`)**,
+   **PT (`pt`)**, **Hybrid (`hybrid`)**. Cada aluno tem **3 saldos**:
+   `User.sessoes_sg / sessoes_pt / sessoes_hybrid`. Cada aula declara o seu tipo
+   em `ServiceType.credit_type`; reservar gasta 1 do balde correspondente e
+   cancelar/apagar devolve **ao mesmo balde**. Um crédito SG **não** paga uma
+   aula PT. Cada `Pack` também tem `credit_type` (que balde enche). Créditos
+   **não expiram**. O valor curto do tipo é o sufixo do campo
+   (`CreditType.SMALL_GROUP` → `sessoes_sg`); `User.campo_saldo(tipo)`,
+   `creditos_de(tipo)` e `saldos_creditos()` fazem a ponte.
 
-3. **Pacotes vendidos pelo WhatsApp.** Modelo `Pack` (bookings). A página
-   `/pacotes/` mostra os pacotes ativos; cada um tem um botão que abre o WhatsApp
-   do Sérgio (link `wa.me`) com uma **mensagem pré-preenchida e personalizável**
-   por ele no admin (`Pack.whatsapp_message`). A venda/pagamento é tratada
-   organicamente por ele fora da app.
+3. **Pacotes vendidos pelo WhatsApp.** A página `/pacotes/` mostra os `Pack`
+   ativos; cada cartão tem um botão que abre o WhatsApp do Sérgio (`wa.me`) com
+   uma **mensagem pré-preenchida** (`Pack.whatsapp_message`, ou uma genérica se
+   vazia). A venda/pagamento é tratada por ele fora da app.
 
-4. **Créditos são atribuídos manualmente pelo Sérgio.** Como a compra é fora da
-   app, após o pagamento ele vai ao admin (Utilizadores) e edita os `credits` do
-   aluno — dá para editar direto na lista (`list_editable`). O histórico fica no
-   "History" do próprio objeto no admin.
+4. **Créditos atribuídos manualmente pelo Sérgio.** Após o pagamento, ele vai
+   ao admin → Utilizadores e edita os 3 saldos (editáveis direto na lista via
+   `list_editable`). O histórico fica no "History" do objeto no admin.
 
-5. **Recuperação de password = via WhatsApp (Opção A).** NÃO há recuperação por
-   email. O link "Esqueci-me da password" no login abre o WhatsApp do Sérgio;
-   ele redefine a password do aluno no admin. (Alternativa futura: código por
-   SMS via gateway pago — não implementado.)
+5. **Recuperação de password = via WhatsApp.** NÃO há reset por email. O link
+   "Esqueci-me da password" no login abre o WhatsApp do Sérgio (constante
+   `WA_HELP_URL` em `config/urls.py`); ele redefine a password no admin.
 
-6. **Horário navegável por dia.** O Sérgio marca a semana toda de uma vez; o
-   aluno anda para trás/frente entre dias no `/horario/` (`?date=AAAA-MM-DD`).
-   Para não marcar aula a aula, há o **Programa semanal** (`WeeklyProgramSlot`):
-   encaixes fixos (dia+hora+tipo+local por defeito) e um botão no admin
-   "Gerar aulas da semana" que cria as sessões de uma semana de uma vez, sem
-   duplicar. O horário é fixo; tipo/local ajustam-se por semana nas sessões.
+6. **Horário navegável por dia** (`/horario/?date=AAAA-MM-DD`). Janela limitada:
+   **3 dias para trás** e **14 para a frente** (a view fixa o dia à janela mesmo
+   por URL manual; a seta do limite fica visível mas inerte). Para não marcar
+   aula a aula, há o **Programa semanal** (`WeeklyProgramSlot`): encaixes fixos
+   (dia da semana + hora + tipo + local por defeito) e um botão no admin
+   **"Gerar aulas da semana"** que cria as sessões de uma semana de uma vez.
+   É **idempotente** (não duplica: salta as que já existem no mesmo instante e
+   tipo) e gera em **hora de Lisboa** (DST-safe). O horário é o que é fixo;
+   tipo/local variam por semana e ajustam-se nas sessões geradas.
 
-7. **Aba de vídeos removida DE TODO** (jul 2026). O cliente decidiu que não é
-   necessária. A app `library` foi apagada por completo (código, tabelas,
-   admin); se algum dia voltar, recupera-se do histórico do Git.
+7. **Aba de vídeos removida DE TODO** (jul 2026). A app `library` foi apagada
+   por completo (código, tabelas, migração revertida com `migrate library zero`,
+   admin). Se voltar, recupera-se do histórico do Git. *(O README ainda pode
+   referir vídeos — está desatualizado nesse ponto.)*
 
-8. **Data de nascimento no registo** para o Sérgio saber os aniversários.
-   Por agora, há um filtro no admin ("Faz anos hoje"). O **aviso automático
-   diário** ainda NÃO existe — precisa de tarefa agendada (fazer no deploy).
-   Enviar por WhatsApp automaticamente exige a API paga; o realista é um
-   lembrete diário ao Sérgio.
+8. **Data de nascimento no registo** para o Sérgio saber os aniversários. Há um
+   filtro no admin ("Faz anos hoje"). O **aviso automático diário ainda NÃO
+   existe** — precisa de tarefa agendada (fazer no deploy). Envio automático por
+   WhatsApp exige API paga; o realista é um lembrete diário ao Sérgio.
 
-## Configuração relevante
+---
 
-- `config/settings.py`:
-  - `AUTH_USER_MODEL = "accounts.User"`
-  - `LANGUAGE_CODE = "pt-pt"`, `TIME_ZONE = "Europe/Lisbon"`.
-  - `AUTH_PASSWORD_VALIDATORS`: só mínimo de 6 caracteres (público pouco técnico).
-  - `SERGIO_WHATSAPP = "351939339857"` — **número de TESTE do André**. Trocar
-    pelo número do Sérgio em produção (um só sítio, usado em todos os links wa.me).
-  - `EMAIL_BACKEND` = console (resquício; o email já não é usado no fluxo).
+## 5. Modelos de dados (detalhe)
 
-## Modelos (resumo)
+**`accounts.User(AbstractUser)`** — `username` = telemóvel. Campos extra:
+`birth_date`, `sessoes_sg`, `sessoes_pt`, `sessoes_hybrid`, `is_trainer`,
+`created_at`. Propriedade `phone` (= username); helpers `campo_saldo(tipo)`,
+`creditos_de(tipo)`, `saldos_creditos()`. `__str__` = nome completo ou username.
 
-- `accounts.User(AbstractUser)`: + `birth_date`, `sessoes_sg/pt/hybrid`,
-  `is_trainer`, `created_at`. `username` = telemóvel. Propriedade `phone`
-  devolve o username; `creditos_de(tipo)` e `saldos_creditos()` para os saldos.
-- `bookings.Location`: nome, `kind` (indoor/outdoor), morada, ativo.
-- `bookings.ServiceType`: nome, lotação por defeito, `is_online`,
-  `min_cancel_hours` (antecedência p/ cancelar), ativo.
-- `bookings.Session`: tipo de serviço, treinador, local, início, duração,
-  lotação, cancelada. Propriedades: `spots_taken/left`, `is_full`, `is_past`,
-  `card_image` (fundo indoor/outdoor conforme o local).
-- `bookings.Booking`: sessão + aluno + estado (booked/cancelled/attended/no_show).
-  Constraint única (sessão, aluno). Método `client_can_cancel()` aplica a regra
-  de antecedência do tipo de serviço; `client_cancellable` (bool p/ template).
-- `bookings.Pack`: nome, descrição, `number_of_sessions` (= créditos), preço
-  (opcional), `whatsapp_message`, ordem, ativo.
-- `bookings.ClientPack`: existe mas **não é central** agora (os créditos vivem no
-  User). Não removido para evitar migração destrutiva; escondido do admin.
+**`bookings.Location`** — `name`, `kind` (`indoor`/`outdoor`), `address`,
+`active`. Usado para escolher a imagem do cartão da aula.
 
-## Fluxos principais (views em bookings/views.py)
+**`bookings.ServiceType`** — o "tipo de aula" que o Sérgio cria no admin:
+`name`, `description`, **`credit_type`** (SG/PT/Hybrid — que balde a aula gasta),
+`default_capacity`, `is_online`, `min_cancel_hours` (antecedência p/ o aluno
+cancelar sozinho; 0 = sem restrição), `active`.
 
-- `home` — antevisão das próximas sessões.
-- `signup` — auto-registo por telemóvel; entra logo.
-- `schedule` — sessões de um dia + navegação por dia.
-- `book` (POST) — valida (não cheia, não passada, tem crédito), cria/reactiva
-  reserva, desconta 1 crédito.
-- `cancel_booking` (POST) — respeita a regra de antecedência, devolve 1 crédito.
-- `my_bookings` — reservas futuras do aluno.
-- `packages` — pacotes ativos + link `wa.me` com mensagem preenchida.
+**`bookings.Session`** — uma aula concreta na agenda:
+`service_type` (FK, PROTECT), `trainer` (FK User, SET_NULL — **escondido do
+admin, só há o Sérgio**), `location` (FK, SET_NULL, vazio = online), `title`
+(opcional), `start` (DateTimeField), `duration_minutes`, `capacity`,
+`is_cancelled`, `notes`, `created_at`. Propriedades: `end`, `spots_taken`,
+`spots_left`, `is_full`, `is_past`, **`credit_type`** (vem do service_type),
+**`card_image`** (outdoor→`class-outdoor.jpg`, indoor→`class-indoor.jpg`, sem
+local→`class-online.jpg`). No `save()`, quando passa de ativa→cancelada, chama
+`_refund_active_bookings()` que cancela as marcações ativas e devolve 1 crédito
+**ao balde certo** de cada aluno.
 
-Login/logout estão em `config/urls.py` (LoginView com `PhoneLoginForm`), não via
-`django.contrib.auth.urls` (a recuperação por email foi removida).
+**`bookings.Pack`** — produto de créditos: `name`, `description`,
+**`credit_type`**, `number_of_sessions` (= créditos que dá), `price` (opcional),
+`whatsapp_message`, `order`, `active`.
 
-## Marca / visual
+**`bookings.WeeklyProgramSlot`** — encaixe do programa semanal: `weekday`
+(0=Segunda … 6=Domingo), `start_time`, `service_type` (por defeito), `location`
+(por defeito), `capacity` (vazio = usa a do service_type), `duration_minutes`,
+`active`. Método `criar_sessao(data)` cria a `Session` nessa data em hora de
+Lisboa, sem duplicar.
 
-- Tema escuro moderno. Paleta em `static/img/brand/MARCA.md`:
-  preto `#0F0F0F`, cinza `#202020`, verde vivo `#5DD62C`, verde escuro `#337418`,
-  branco `#F8F8F8`. CSS em `static/css/style.css` (variáveis no `:root`).
+**`bookings.Booking`** — marcação: `session` (FK CASCADE), `client` (FK CASCADE),
+`status` (`booked`/`cancelled`/`attended`/`no_show`), `client_pack` (FK legado,
+não usado), `created_at`. Constraint única `(session, client)`.
+`client_can_cancel()` aplica a regra de antecedência do tipo de serviço;
+`client_cancellable` é a versão booleana p/ template.
+Sinal **`pre_delete`** `devolver_credito_ao_apagar_marcacao`: se uma marcação
+**ativa** de uma sessão **futura não-cancelada** for apagada (ex.: o Sérgio
+apaga a sessão e as marcações vão em cascata), devolve 1 crédito ao balde certo.
+Cobre o caso em que apagar (em vez de cancelar) faria os créditos desaparecerem.
+
+**`bookings.ClientPack`** — **legado**, do desenho antigo em que o saldo vivia
+no pack comprado. Hoje o saldo são os campos do User. Não removido (evitar
+migração destrutiva); **escondido do admin**. Não usar em código novo.
+
+---
+
+## 6. Fluxos do site (views em `bookings/views.py`)
+
+Rotas em `bookings/urls.py`; login/logout em `config/urls.py`.
+
+- `home` (`/`) — antevisão das próximas 6 sessões futuras não canceladas.
+- `signup` (`/registar/`) — auto-registo por telemóvel; faz login logo.
+- `schedule` (`/horario/`, login) — sessões de um dia + navegação por dia
+  (limitada a −3/+14 dias); passa `has_prev`/`has_next` ao template.
+- `book` (`/marcar/<id>/`, POST, login) — dentro de `transaction.atomic()` com
+  `select_for_update()` na sessão: valida (não cancelada, não passada, não
+  duplicada, não cheia), **desconta 1 do balde do tipo da aula** com UPDATE
+  condicional (`F()`), cria/reactiva a `Booking`. Sem saldo → redireciona para
+  `/pacotes/` com mensagem do tipo em falta.
+- `my_bookings` (`/as-minhas-marcacoes/`, login) — reservas futuras do aluno.
+- `cancel_booking` (`/cancelar/<id>/`, POST, login) — respeita a antecedência,
+  cancela com UPDATE condicional (evita devolver 2× em duplo-clique) e devolve
+  1 crédito ao balde certo.
+- `packages` (`/pacotes/`, login) — packs ativos + link `wa.me` preenchido.
+
+**Concorrência:** reservar/cancelar usam UPDATE condicional atómico e
+`select_for_update`, à prova de duplo-clique / duas abas / última vaga.
+
+---
+
+## 7. Painel de administração (`bookings/admin.py`, `accounts/admin.py`)
+
+Muito personalizado, para o Sérgio (não-técnico). Português em todo o lado.
+Abas visíveis: **Utilizadores, Locais, Tipos de serviço, Sessões, Marcações,
+Pacotes, Programa semanal**. Escondidos: **Grupos** (`admin.site.unregister`),
+**ClientPack** e **biblioteca** (não registados). Personalizações via CSS/
+templates que estendem o admin — **sem pacotes de tema externos** (decisão:
+não prender a manutenção a terceiros; o azul do Django fica como está).
+
+**Overrides globais do admin** (`templates/admin/`):
+- `base_site.html` — seta **"← Voltar"** (via `history.back()`, preserva
+  pesquisa/filtros) no topo de fichas e confirmações de remoção.
+- `search_form.html` — botão **"Limpar"** ao lado da contagem de resultados
+  (limpa só a pesquisa). *(Cuidado JS: usar `new window.URL`, não `new URL`, em
+  handlers inline.)*
+- `checkbox_filter.html` — filtros de **multi-seleção** (o admin nativo só tem
+  escolha única).
+
+**Sessões (`SessionAdmin`)** — o ecrã mais trabalhado:
+- Colunas: sessão, tipo, local, início, **"Inscritos"** (`3 / 12` clicável →
+  Marcações filtradas por essa aula), **"Estado"** (Agendada verde / Concluída
+  cinza / Cancelada vermelho — substitui o booleano `is_cancelled` invertido).
+- Ordenação `-start` (mais recentes primeiro).
+- Filtros **checkbox**: `EstadoFilter` (agendadas/concluídas/canceladas) e
+  `TempoFilter` (futuras/passadas), combináveis entre si e com a barra de datas.
+- **Cancelar é individual, não em massa** (após um cancelamento acidental por
+  seleção múltipla): botão **"Cancelar esta aula"** (vermelho, à direita, com
+  confirmação) na ficha da sessão; vira **"Reativar esta aula"** quando
+  cancelada. Rotas próprias (`get_urls` → `cancelar_view`/`reativar_view`, só
+  POST). O checkbox `is_cancelled` sai do formulário (`exclude`); o estado
+  aparece em leitura. **Reativar NÃO reinscreve ninguém** (evita cobrar sem
+  consentimento); avisa quantas marcações canceladas há para o Sérgio contactar.
+  Ação em massa **"Reativar selecionadas"** existe (reativar não mexe créditos).
+- **Widget de hora** no campo `start`: em vez de uma caixa "21:00", tem duas
+  caixas **hora : minuto** (hora 0-23, minuto sugere 00/15/30/45, ambas com
+  escrita livre; "9" → 09:00). Implementado com `HoraWidget` +
+  `AdminSplitDateTimeHora` + templates em `bookings/templates/admin/widgets/`
+  (`hora.html`, `split_datetime_hora.html`, que empilha data/hora com flex —
+  o `<br>` do admin não quebra dentro da linha flex do campo). A data mantém
+  o "Hoje" + calendário.
+
+**Marcações (`BookingAdmin`)** — coluna **"Telemóvel"**: clicar pergunta
+(confirm nativo) se quer abrir o WhatsApp com o aluno e abre `wa.me`; contas
+sem número (ex.: admin) aparecem sem link. `lookup_allowed` autoriza o filtro
+`session__id__exact` que vem da coluna "Inscritos".
+
+**Programa semanal (`WeeklyProgramSlotAdmin`)** — botão **"Gerar aulas da
+semana"** (`change_list.html` + `gerar_semana.html`), rota `gerar_semana_view`:
+escolhe a Segunda da semana (recua para Segunda se escolher outro dia), gera as
+sessões dos encaixes ativos, sem duplicar, e mostra quantas criou/saltou.
+
+**Utilizadores (`accounts/admin.py`)** — 3 saldos editáveis na lista
+(`list_editable`), filtro "Faz anos hoje" (`BirthdayTodayFilter`), **sem remoção
+em massa** (`get_actions` remove `delete_selected`), sem campos de grupos/
+permissões na ficha (só um superuser).
+
+---
+
+## 8. Segurança
+
+- `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS` vêm de **variáveis de ambiente** (com
+  defaults só de dev). `db.sqlite3` e `.claude/` no `.gitignore`.
+- **Throttle de login** (`accounts.views.ThrottledLoginView`): após 5 falhas
+  seguidas (mesmo IP + número, contagem na cache) bloqueia 15 min. Importante
+  porque as passwords têm mínimo de só 6 caracteres. **Nota deploy:** atrás de
+  proxy, `REMOTE_ADDR` passa a ser o IP do proxy — rever para usar o cabeçalho
+  correto.
+- Passwords: só `MinimumLengthValidator` (6), por opção (público pouco técnico,
+  sem dados sensíveis nem pagamentos na app).
+
+---
+
+## 9. Marca / visual (site)
+
+- Tema escuro. Paleta em `static/img/brand/MARCA.md`: preto `#0F0F0F`, cinza
+  `#202020`, verde vivo `#5DD62C`, verde escuro `#337418`, branco `#F8F8F8`.
+  Variáveis no `:root` de `static/css/style.css`.
+- **Fonte de destaque: Oswald** (Google Fonts) em títulos, cartões e botões
+  (maiúsculas, estilo cartaz); corpo na fonte de sistema.
+- **Cores por tipo de crédito** (categóricas, não semáforo): SG verde `#5DD62C`,
+  PT teal `#2CC5D6`, Hybrid violeta `#9B7CF0`. Aparecem na **faixa de saldos**
+  (3 contadores centrados no topo, só para alunos — `not user.is_staff`) e nos
+  **selos** dos cartões de aula e de pacote.
 - Imagens em `static/img/brand/`: `logo-restart-now.png`, `class-outdoor.jpg`,
-  `class-indoor.jpg` (fundo dos cartões de aula, escolhido pelo indoor/outdoor).
-- Login/registo usam `base_auth.html` (fundo preto, logo centrado, botões verdes).
-- Referências de UI (inspiração) em `docs/referencias-ui.md`.
+  `class-indoor.jpg`, `class-online.jpg` (todas otimizadas a ~1600px). O cartão
+  de aula escolhe a imagem pelo local (indoor/outdoor/online).
+- `base.html` — barra de topo com **menu hambúrguer** abaixo de 720px; foco
+  visível (`:focus-visible` verde). Login/registo usam `base_auth.html`.
+- **Comentários de template:** `{# #}` só numa linha — comentário multi-linha
+  vira texto na página. Usar sempre `{% comment %}...{% endcomment %}`.
+  (Este erro já ocorreu 2×; verificar sempre no browser após mexer em templates.)
 
-## Estado atual
+---
 
-FEITO: estrutura, modelos, admin PT, registo/login por telemóvel, horário por
-dia, reservas com créditos, pacotes com WhatsApp, tema visual RESTART NOW,
-recuperação via WhatsApp. Projeto sob Git.
+## 10. Testes
 
-POR FAZER / PRÓXIMOS PASSOS:
-1. **Correr as migrações** do último reescopo (User/Pack) se ainda não corridas.
-2. **Otimizar as fotos** `class-outdoor.jpg` (~4,6MB) e `class-indoor.jpg` (~1,4MB)
-   — redimensionar para ~1600px e comprimir (~200–400KB). Estão demasiado pesadas.
-3. **Deploy (Bloco 5)**: Railway ou PythonAnywhere; PostgreSQL; `DEBUG=False`;
-   `ALLOWED_HOSTS`; ficheiros estáticos (whitenoise); cache-busting; e a tarefa
-   agendada do aniversário. Custo de alojamento ~5–12€/mês, a cargo do cliente
-   (a mensalidade de manutenção do André é separada — "Modelo B").
-4. **Trocar `SERGIO_WHATSAPP`** para o número real do Sérgio.
-5. Afinações visuais e formação do Sérgio (mini-guia do admin).
+**49 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
+throttle de login, normalização/registo/login por telemóvel, isolamento de
+créditos por tipo, reembolsos (cancelar sessão, apagar sessão/marcação, cancelar
+reserva), filtros e ações do admin de Sessões, coluna Telemóvel, gerador do
+programa semanal (inc. não-duplicar), limites de navegação do horário, imagem do
+cartão, e o widget de hora. Correr sempre `manage.py test accounts bookings`
+antes de commitar mudanças de lógica.
 
-## Notas / cuidados
+---
 
-- UI, mensagens e admin **sempre em português de Portugal**.
-- Manter tudo **simples** — o cliente é pequeno e quer pouca complexidade.
-- Sempre que se mexe no CSS, o browser cacheia: usar **Ctrl+F5** para ver mudanças.
-- Depois de mexer no código, o fluxo Git é: `git add -A` → `git commit -m "..."`.
-- Há ficheiros de templates órfãos (`templates/registration/password_reset_*`,
-  `templates/library/*`) que já não têm rota; podem ser apagados, são inofensivos.
+## 11. Estado atual
+
+**FEITO:** estrutura e modelos; login/registo por telemóvel com normalização;
+créditos por tipo (SG/PT/Hybrid) com reserva/cancelamento/reembolso atómicos;
+horário por dia com limites; programa semanal + gerador; pacotes com WhatsApp;
+admin muito personalizado (cancelar/reativar por aula, filtros checkbox, coluna
+Inscritos e Telemóvel, widget de hora, seta Voltar, botão Limpar); tema visual
+RESTART NOW com faixa de saldos e selos por tipo; imagens otimizadas; throttle
+de login; recuperação via WhatsApp; 49 testes; GitHub ligado (privado).
+
+**POR FAZER (ver `PENDENTES.md` para o detalhe):**
+1. **Info do Sérgio sobre pacotes** — nomes/nº de sessões/preços/`credit_type`
+   reais; confirmar a natureza do "Hybrid"; `credit_type` de cada Tipo de
+   Serviço (ficaram Small Group por defeito). Os dados atuais são de teste.
+2. **Deploy (Bloco 5):** Railway ou PythonAnywhere; PostgreSQL; `DEBUG=False`;
+   `ALLOWED_HOSTS`; estáticos (whitenoise); throttle atrás de proxy; tarefa
+   agendada do lembrete de aniversários. Alojamento ~5–12€/mês (cliente).
+3. **Trocar `SERGIO_WHATSAPP`** (agora é o número de TESTE do André) pelo real.
+4. **Limpar dados de teste** antes do deploy (User1/2/3, Ana Teste, aulas e
+   pacotes fictícios).
+5. Decisão sobre `ClientPack` (apagar de todo vs. manter escondido).
+6. Mini-guia do admin para o Sérgio (formação de entrega).
+
+---
+
+## 12. Notas / cuidados (resumo)
+
+- UI, mensagens e admin **sempre em pt-PT**. Manter tudo **simples**.
+- Ao mexer no CSS: **Ctrl+F5** (cache do browser).
+- Templates de **widgets** de formulário vivem em `<app>/templates/`, não na
+  pasta de projeto (o renderizador de formulários procura nas apps).
+- Comentários de template multi-linha: `{% comment %}`, nunca `{# #}`.
+- Commits no PowerShell 5.1: **sem aspas duplas** na mensagem.
+- `db.sqlite3` é local (gitignored) — mudar dados no admin/shell **não** vai
+  para o Git; só o código vai.
