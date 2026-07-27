@@ -376,9 +376,16 @@ class BookingAdmin(admin.ModelAdmin):
         if not re.fullmatch(r"9\d{8}", numero):
             return numero
         nome = obj.client.get_full_name() or numero
+        # O nome (escolhido pelo aluno no registo) vai num atributo data- e é
+        # lido em runtime com this.dataset.nome — NUNCA interpolado dentro do
+        # JS do onclick. Interpolar no onclick permitia XSS: o escape de HTML
+        # é desfeito pelo browser no contexto do atributo, e um nome com aspas
+        # partia a string do confirm() e injetava código no painel do Sérgio.
         return format_html(
             '<a href="https://wa.me/351{}" target="_blank" rel="noopener" '
-            'onclick="return confirm(\'Abrir conversa no WhatsApp com {}?\')">{}</a>',
+            'data-nome="{}" '
+            "onclick=\"return confirm('Abrir conversa no WhatsApp com ' "
+            "+ this.dataset.nome + '?')\">{}</a>",
             numero, nome, numero,
         )
 

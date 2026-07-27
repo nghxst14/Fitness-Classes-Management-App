@@ -411,6 +411,20 @@ class BookingAdminTelemovelTests(TestCase):
         response = self.client_http.get("/admin/bookings/booking/")
         self.assertNotContains(response, "wa.me")
 
+    def test_nome_malicioso_nao_injeta_js(self):
+        # Um nome com aspas não pode partir a string do confirm() (XSS no
+        # admin). O nome vai em data-nome (escapado) e é lido em runtime.
+        aluno = User.objects.create_user(
+            username="912345678", password="x",
+            first_name="x');alert(1)//", last_name="",
+        )
+        Booking.objects.create(session=self.sessao, client=aluno)
+        html = self.client_http.get("/admin/bookings/booking/").content.decode()
+        # A sequência de escape (aspa + parêntese) não pode aparecer em bruto.
+        self.assertNotIn("');alert(1)//", html)
+        # E usa-se o padrão seguro (lê o nome do atributo, não o interpola).
+        self.assertIn("this.dataset.nome", html)
+
 
 class DeleteRefundTests(TestCase):
     """Apagar (em vez de cancelar) não pode fazer desaparecer créditos."""
