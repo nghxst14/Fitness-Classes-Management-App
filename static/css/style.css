@@ -15,6 +15,13 @@
 
 * { box-sizing: border-box; }
 
+/* Reserva sempre o espaço da barra de scroll vertical. Sem isto, uma página
+   com muitas aulas (com scroll) e outra com poucas (sem scroll) centram o
+   conteúdo em posições ligeiramente diferentes — o conteúdo "salta" ~8px de
+   lado ao navegar entre dias. Em telemóvel a barra é sobreposta (0px), sem
+   efeito. */
+html { scrollbar-gutter: stable; }
+
 body {
   margin: 0;
   font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
