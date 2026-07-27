@@ -132,9 +132,9 @@ Estas decisões vieram de reuniões com o Sérgio e **substituem** ideias antiga
    referir vídeos — está desatualizado nesse ponto.)*
 
 8. **Data de nascimento no registo** para o Sérgio saber os aniversários. Há um
-   filtro no admin ("Faz anos hoje"). O **aviso automático diário ainda NÃO
-   existe** — precisa de tarefa agendada (fazer no deploy). Envio automático por
-   WhatsApp exige API paga; o realista é um lembrete diário ao Sérgio.
+   filtro no admin ("Faz anos hoje"). O **aviso automático diário foi
+   descartado** (decisão do cliente) — fica só o filtro manual. (Ver
+   "Decisões fechadas" no fim da secção 11.)
 
 ---
 
@@ -217,8 +217,8 @@ Rotas em `bookings/urls.py`; login/logout em `config/urls.py`.
 
 Muito personalizado, para o Sérgio (não-técnico). Português em todo o lado.
 Abas visíveis: **Utilizadores, Locais, Tipos de serviço, Sessões, Marcações,
-Pacotes, Programa semanal**. Escondidos: **Grupos** (`admin.site.unregister`),
-**ClientPack** e **biblioteca** (não registados). Personalizações via CSS/
+Pacotes, Programa semanal**. Escondida: **Grupos** (`admin.site.unregister`).
+(ClientPack e a app biblioteca foram apagados de todo.) Personalizações via CSS/
 templates que estendem o admin — **sem pacotes de tema externos** (decisão:
 não prender a manutenção a terceiros; o azul do Django fica como está).
 
@@ -282,6 +282,21 @@ permissões na ficha (só um superuser).
   correto.
 - Passwords: só `MinimumLengthValidator` (6), por opção (público pouco técnico,
   sem dados sensíveis nem pagamentos na app).
+- **Revisão de segurança (jul 2026):** CSRF ok (todos os POST com token), sem SQL
+  raw (só ORM), autorização ok (`cancel_booking`/`my_bookings` scoped ao user,
+  views de admin verificam permissões). Corrigida **1 XSS armazenada**: o nome do
+  aluno ia num `onclick` da coluna Telemóvel e podia injetar JS no painel do
+  Sérgio — agora vai em `data-nome` e é lido com `this.dataset.nome`.
+- **Gap conhecido:** o login do **admin** (`/admin/login/`) **não** passa pelo
+  `ThrottledLoginView` (só o `/conta/login/` do site tem throttle) — a conta
+  superuser não está protegida contra força bruta. Mitigar no deploy (password
+  forte + não usar username "admin"; ou throttle/limite de IP no `/admin/`).
+- O `settings.py` **já está preparado para produção**: bloco `if not DEBUG` com
+  `SECURE_SSL_REDIRECT`, cookies seguros, HSTS, `SECURE_PROXY_SSL_HEADER`;
+  WhiteNoise; PostgreSQL via `DATABASE_URL`; `CSRF_TRUSTED_ORIGINS`. O
+  `check --deploy` só acusa avisos **localmente** (DEBUG=True); em produção
+  resolvem-se — exceto a `SECRET_KEY`, que tem de ser posta por env var. Ver
+  `DEPLOY.md` para os passos do Railway.
 
 ---
 

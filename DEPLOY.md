@@ -93,6 +93,24 @@ esta conta que o Sérgio entra em `/<dominio>/admin/`.
       (Railway *Cron*) a correr um comando de gestão — fica para depois.
 - [ ] **Formação do Sérgio** (mini-guia do admin).
 
+## Segurança a rever no deploy (da revisão de jul 2026)
+
+O código está preparado (HTTPS, HSTS, cookies seguros — bloco `if not DEBUG`),
+mas há **dois pontos por resolver** que a config não cobre:
+
+- [ ] **Throttle atrás de proxy.** `ThrottledLoginView` conta tentativas por
+      `REMOTE_ADDR`, que no Railway passa a ser o IP do proxy — todos os alunos
+      partilhariam o mesmo contador (um ataque a uma conta poderia bloquear
+      logins de toda a gente). Ler o IP real do `X-Forwarded-For`, com cuidado
+      para não confiar no cabeçalho às cegas (é falsificável).
+- [ ] **Login do admin sem throttle.** `/admin/login/` não passa pelo
+      `ThrottledLoginView` — a conta do Sérgio não está protegida contra força
+      bruta. Mitigar: password forte, **não** usar o username "admin", e/ou
+      limitar `/admin/` por IP.
+
+*(Já corrigido antes do deploy: XSS armazenada na coluna Telemóvel do admin — o
+nome do aluno passou a ir em `data-nome` em vez de dentro do `onclick`.)*
+
 ## Notas
 
 - **Custo:** ~5–12€/mês (app + PostgreSQL), a cargo do cliente. A manutenção do
