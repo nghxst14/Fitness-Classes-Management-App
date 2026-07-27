@@ -13,11 +13,23 @@ MAX_TENTATIVAS = 5
 BLOQUEIO_SEGUNDOS = 15 * 60
 
 
+def _client_ip(request):
+    """
+    IP real do cliente. Atrás do proxy do Railway, REMOTE_ADDR é o IP do
+    proxy (igual para todos) — o IP verdadeiro vem no X-Forwarded-For (o
+    primeiro da lista). Em dev não há esse cabeçalho e usa-se REMOTE_ADDR.
+    """
+    xff = request.META.get("HTTP_X_FORWARDED_FOR")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "desconhecido")
+
+
 class ThrottledLoginView(auth_views.LoginView):
     """LoginView do Django com limite de tentativas falhadas."""
 
     def _chave(self):
-        ip = self.request.META.get("REMOTE_ADDR", "desconhecido")
+        ip = _client_ip(self.request)
         numero = normalizar_telemovel(self.request.POST.get("username", ""))
         return f"login-falhas:{ip}:{numero}"
 

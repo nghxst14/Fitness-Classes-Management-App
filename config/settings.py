@@ -6,6 +6,8 @@ Documentação: https://docs.djangoproject.com/en/5.0/ref/settings/
 import os
 from pathlib import Path
 
+import dj_database_url
+
 # Caminho base do projeto (a pasta que contém o manage.py)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -24,6 +26,13 @@ ALLOWED_HOSTS = os.environ.get(
     "DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost"
 ).split(",")
 
+# Domínios de confiança para POSTs (admin, formulários) atrás do HTTPS do
+# Railway. Em produção, definir DJANGO_CSRF_TRUSTED_ORIGINS com o domínio
+# (ex.: "https://o-meu-site.up.railway.app").
+CSRF_TRUSTED_ORIGINS = [
+    o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o
+]
+
 
 # --- Aplicações --------------------------------------------------------------
 INSTALLED_APPS = [
@@ -40,6 +49,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # WhiteNoise serve os ficheiros estáticos em produção (logo a seguir ao
+    # SecurityMiddleware, como manda a documentação). Em dev é inofensivo.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -69,14 +81,18 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 
 # --- Base de dados -----------------------------------------------------------
-# Em desenvolvimento usamos SQLite (um ficheiro, sem instalação nenhuma).
-# Em produção passaremos para PostgreSQL no Bloco 5 (deploy).
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+# Produção: PostgreSQL, lido da variável DATABASE_URL que o Railway injeta.
+# Desenvolvimento: SQLite (um ficheiro, sem instalação nenhuma).
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if DATABASE_URL:
+    DATABASES = {"default": dj_database_url.parse(DATABASE_URL, conn_max_age=600)}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
     }
-}
 
 
 # --- Validação de palavras-passe ---------------------------------------------
@@ -106,9 +122,20 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
-# Ficheiros carregados (ex.: logótipo). Para vídeos usaremos YouTube/Vimeo.
+# Ficheiros carregados (ex.: logótipo).
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# Em produção, o WhiteNoise serve os estáticos comprimidos e com hash no nome
+# (cache-busting automático). Só quando DEBUG=False: em dev, o Django serve os
+# ficheiros diretamente e não há `collectstatic` corrido.
+if not DEBUG:
+    STORAGES = {
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
 
 
 # --- Modelo de utilizador personalizado --------------------------------------
@@ -124,7 +151,22 @@ LOGIN_URL = "login"
 
 # --- WhatsApp -----------------------------------------------------------------
 # Número (com indicativo, sem "+" nem espaços) para os links wa.me dos pacotes
-# e da ajuda com a password. TROCAR pelo número do Sérgio quando for para produção.
-SERGIO_WHATSAPP = "351939339857"
+# e da ajuda com a password. Em produção, definir a variável SERGIO_WHATSAPP
+# com o número real do Sérgio. O default é o número de TESTE do André.
+SERGIO_WHATSAPP = os.environ.get("SERGIO_WHATSAPP", "351939339857")
+
+
+# --- Segurança em produção ---------------------------------------------------
+# Só quando DEBUG=False. O Railway serve tudo por HTTPS atrás de um proxy;
+# estas opções dizem ao Django para confiar no cabeçalho do proxy e forçar
+# ligações seguras (cookies só por HTTPS, redirecionar HTTP->HTTPS, HSTS).
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30  # 30 dias
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

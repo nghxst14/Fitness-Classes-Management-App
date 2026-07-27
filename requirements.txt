@@ -1,8 +1,9 @@
 # Dependências do projeto (instalar com: pip install -r requirements.txt)
-Django>=5.0,<5.2
+Django>=5.1,<5.2
 
-# Para produção (deploy) — descomentar quando chegarmos ao Bloco 5:
-# gunicorn>=22.0        # servidor de produção
-# psycopg[binary]>=3.1  # ligação ao PostgreSQL
-# dj-database-url>=2.1  # ler a base de dados a partir de uma variável de ambiente
-# whitenoise>=6.6       # servir ficheiros estáticos em produção
+# Produção (deploy no Railway). Em desenvolvimento não são usadas — o gunicorn
+# nem sequer corre no Windows —, mas ficam instaladas por causa do requirements.
+gunicorn>=22.0          # servidor de produção (o runserver é só para dev)
+psycopg[binary]>=3.1    # ligação ao PostgreSQL
+dj-database-url>=2.1    # lê a base de dados a partir da variável DATABASE_URL
+whitenoise>=6.6         # serve os ficheiros estáticos em produção
