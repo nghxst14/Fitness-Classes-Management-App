@@ -333,10 +333,14 @@ de login; recuperação via WhatsApp; 49 testes; GitHub ligado (privado).
 1. **Info do Sérgio sobre pacotes** — nomes/nº de sessões/preços/`credit_type`
    reais; confirmar a natureza do "Hybrid"; `credit_type` de cada Tipo de
    Serviço (ficaram Small Group por defeito). Os dados atuais são de teste.
-2. **Deploy (Bloco 5):** Railway ou PythonAnywhere; PostgreSQL; `DEBUG=False`;
-   `ALLOWED_HOSTS`; estáticos (whitenoise); throttle atrás de proxy; tarefa
-   agendada do lembrete de aniversários. Alojamento ~5–12€/mês (cliente).
-3. **Trocar `SERGIO_WHATSAPP`** (agora é o número de TESTE do André) pelo real.
+2. **Deploy no Railway** — o **código já está preparado** (gunicorn,
+   whitenoise, PostgreSQL via `DATABASE_URL`, segurança HTTPS atrás de proxy,
+   throttle com IP real, `Procfile`, `.python-version`, `.env.example`). Falta
+   a parte manual: criar a conta no Railway, ligar o repositório, adicionar o
+   PostgreSQL e definir as variáveis. **Passo a passo em `DEPLOY.md`.**
+   Alojamento ~5–12€/mês (cliente).
+3. **`SERGIO_WHATSAPP`** — em produção define-se por variável de ambiente (o
+   default no código é o número de TESTE do André).
 4. **Limpar dados de teste** antes do deploy (User1/2/3, Ana Teste, aulas e
    pacotes fictícios).
 5. Mini-guia do admin para o Sérgio (formação de entrega).
