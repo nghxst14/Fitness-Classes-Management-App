@@ -351,10 +351,9 @@ class PackAdmin(admin.ModelAdmin):
     search_fields = ("name",)
 
 
-# NOTA: o modelo ClientPack ("Packs dos alunos") já não é registado no admin.
-# Era do desenho antigo, em que o saldo vivia dentro de cada pack comprado;
-# hoje o saldo são os créditos do utilizador (User.credits). A tabela fica na
-# base de dados (evita migração destrutiva), mas escondida não confunde.
+# NOTA: o modelo ClientPack foi apagado de todo (jul 2026). Era do desenho
+# antigo, em que o saldo vivia dentro de cada pack comprado; hoje o saldo são
+# os 3 saldos do utilizador (User.sessoes_sg/pt/hybrid).
 
 
 @admin.register(Booking)

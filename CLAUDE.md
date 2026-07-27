@@ -184,9 +184,8 @@ Sinal **`pre_delete`** `devolver_credito_ao_apagar_marcacao`: se uma marcação
 apaga a sessão e as marcações vão em cascata), devolve 1 crédito ao balde certo.
 Cobre o caso em que apagar (em vez de cancelar) faria os créditos desaparecerem.
 
-**`bookings.ClientPack`** — **legado**, do desenho antigo em que o saldo vivia
-no pack comprado. Hoje o saldo são os campos do User. Não removido (evitar
-migração destrutiva); **escondido do admin**. Não usar em código novo.
+*(O modelo `ClientPack` foi apagado de todo em jul 2026 — era o desenho antigo
+em que o saldo vivia no pack comprado; hoje o saldo são os 3 campos do User.)*
 
 ---
 
@@ -340,8 +339,12 @@ de login; recuperação via WhatsApp; 49 testes; GitHub ligado (privado).
 3. **Trocar `SERGIO_WHATSAPP`** (agora é o número de TESTE do André) pelo real.
 4. **Limpar dados de teste** antes do deploy (User1/2/3, Ana Teste, aulas e
    pacotes fictícios).
-5. Decisão sobre `ClientPack` (apagar de todo vs. manter escondido).
-6. Mini-guia do admin para o Sérgio (formação de entrega).
+5. Mini-guia do admin para o Sérgio (formação de entrega).
+
+**Decisões fechadas (não fazer):** sem lembrete automático de aniversários (só
+o filtro manual "Faz anos hoje"); sem pagamentos online; sem integração de
+WhatsApp na app (a app Business grátis é uma opção só para uso do Sérgio, à
+parte); `ClientPack` apagado de todo.
 
 ---
 

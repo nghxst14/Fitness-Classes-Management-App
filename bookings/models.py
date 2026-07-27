@@ -322,57 +322,6 @@ class WeeklyProgramSlot(models.Model):
         return sessao, True
 
 
-class ClientPack(models.Model):
-    """
-    Um pack efetivamente comprado por um aluno.
-
-    Guardamos o total e as sessões usadas (em vez de ligar diretamente ao Pack)
-    para que o histórico não mude se o Sérgio editar o produto Pack mais tarde.
-    A lógica de descontar sessões ao marcar fica para o Bloco 2.
-    """
-
-    client = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="packs",
-        verbose_name="Aluno",
-    )
-    pack = models.ForeignKey(
-        Pack,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name="purchases",
-        verbose_name="Pack",
-    )
-    sessions_total = models.PositiveIntegerField("Sessões (total)")
-    sessions_used = models.PositiveIntegerField("Sessões usadas", default=0)
-    purchased_at = models.DateField("Comprado em", default=timezone.now)
-    expires_at = models.DateField("Expira em", null=True, blank=True)
-    note = models.CharField("Nota", max_length=255, blank=True)
-
-    class Meta:
-        verbose_name = "Pack do aluno"
-        verbose_name_plural = "Packs dos alunos"
-        ordering = ["-purchased_at"]
-
-    def __str__(self):
-        who = self.client.get_full_name() or self.client.username
-        return f"{who} — {self.sessions_remaining}/{self.sessions_total} sessões"
-
-    @property
-    def sessions_remaining(self):
-        return max(self.sessions_total - self.sessions_used, 0)
-
-    @property
-    def is_expired(self):
-        return bool(self.expires_at and self.expires_at < timezone.localdate())
-
-    @property
-    def is_usable(self):
-        """Ainda tem sessões e não expirou."""
-        return self.sessions_remaining > 0 and not self.is_expired
-
-
 class Booking(models.Model):
     """Uma marcação: um aluno inscrito numa sessão."""
 
@@ -401,15 +350,6 @@ class Booking(models.Model):
     )
     status = models.CharField(
         "Estado", max_length=10, choices=STATUS_CHOICES, default=BOOKED
-    )
-    client_pack = models.ForeignKey(
-        ClientPack,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="bookings",
-        verbose_name="Pack usado",
-        help_text="Pack de onde saiu esta sessão (se aplicável).",
     )
     created_at = models.DateTimeField("Criada em", auto_now_add=True)
 

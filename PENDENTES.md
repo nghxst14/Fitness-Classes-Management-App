@@ -34,10 +34,6 @@
 - **Deploy (Bloco 5)**: Railway ou PythonAnywhere; PostgreSQL; `DEBUG=False`;
   whitenoise; e rever o throttle do login (atrás de proxy, o `REMOTE_ADDR`
   passa a ser o IP do proxy — usar o cabeçalho correto).
-- **Lembrete diário de aniversários** — tarefa agendada, só faz sentido
-  montar no deploy.
-- **Decisão: ClientPack** — apagar de todo (como a app dos vídeos) ou manter
-  escondido do admin. Tabela está vazia; recomendação: apagar.
 - **Limpar dados de teste antes do deploy** — utilizadores User1/User2/User3
   e Ana Teste (913000001), aulas de teste e pacotes fictícios.
 - **Programa semanal**: o preset (23 encaixes) está pré-preenchido com tudo em
@@ -45,3 +41,14 @@
   tipo e o local de cada encaixe no admin (Programa semanal) antes de o usar
   a sério, e o número real de aulas por horário (varia semana a semana).
 - **Mini-guia do admin para o Sérgio** (formação de entrega).
+
+## Decisões fechadas (não fazer)
+
+- **Sem lembrete automático de aniversários** — fica só o filtro manual
+  "Faz anos hoje" no admin.
+- **Sem pagamentos online** — a compra é pelo WhatsApp e o Sérgio soma os
+  créditos à mão.
+- **Sem integração de WhatsApp na app** — a app WhatsApp Business (grátis,
+  oficial, não arrisca o número) é uma opção só para uso do Sérgio, à parte
+  do código.
+- **`ClientPack` apagado de todo** (jul 2026).
