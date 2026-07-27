@@ -27,6 +27,11 @@ class BirthdayTodayFilter(admin.SimpleListFilter):
 class UserAdmin(BaseUserAdmin):
     """Painel de administração dos utilizadores (login por telemóvel)."""
 
+    class Media:
+        # Bolinhas de cor por tipo de crédito nos cabeçalhos das colunas de
+        # saldo (iguais às da faixa de saldos do site).
+        css = {"all": ("css/admin-saldos.css",)}
+
     list_display = (
         "username",
         "get_full_name",

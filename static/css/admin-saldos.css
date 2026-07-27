@@ -1,0 +1,20 @@
+/*
+  Bolinhas de cor por tipo de crédito nos cabeçalhos das colunas de saldo
+  da lista de Utilizadores, iguais às da faixa de saldos do site. Cores
+  categóricas (não semáforo): SG verde, PT teal, Hybrid violeta.
+  Carregado só pelo UserAdmin (accounts/admin.py, class Media).
+*/
+th.column-sessoes_sg .text a::before,
+th.column-sessoes_pt .text a::before,
+th.column-sessoes_hybrid .text a::before {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+th.column-sessoes_sg .text a::before { background: #5dd62c; }
+th.column-sessoes_pt .text a::before { background: #2cc5d6; }
+th.column-sessoes_hybrid .text a::before { background: #9b7cf0; }
