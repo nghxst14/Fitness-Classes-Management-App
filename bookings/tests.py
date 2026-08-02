@@ -63,8 +63,11 @@ class WeeklyProgramGenerateTests(TestCase):
         )
         self.url = "/admin/bookings/weeklyprogramslot/gerar-semana/"
 
-    def _gerar(self, segunda="2026-08-03"):  # 2026-08-03 é uma Segunda
-        return self.client_http.post(self.url, {"segunda": segunda})
+    def _gerar(self, segunda="2026-08-03", slots=None):  # 2026-08-03 é Segunda
+        # Por defeito, gera todos os encaixes (como a página, com tudo marcado).
+        if slots is None:
+            slots = list(WeeklyProgramSlot.objects.values_list("pk", flat=True))
+        return self.client_http.post(self.url, {"segunda": segunda, "slots": slots})
 
     def test_gera_uma_sessao_por_encaixe(self):
         self._gerar()
@@ -81,7 +84,18 @@ class WeeklyProgramGenerateTests(TestCase):
         self._gerar()  # segundo clique na mesma semana
         self.assertEqual(Session.objects.count(), 2)
 
+    def test_gera_so_os_selecionados(self):
+        # Escolher só a Segunda gera 1 aula, não as duas.
+        so_segunda = WeeklyProgramSlot.objects.get(weekday=0).pk
+        self._gerar(slots=[so_segunda])
+        self.assertEqual(Session.objects.count(), 1)
+
+    def test_sem_selecao_nao_gera_nada(self):
+        self._gerar(slots=[])
+        self.assertEqual(Session.objects.count(), 0)
+
     def test_encaixe_inativo_nao_gera(self):
+        # Mesmo selecionado, um encaixe inativo não gera.
         WeeklyProgramSlot.objects.filter(weekday=5).update(active=False)
         self._gerar()
         self.assertEqual(Session.objects.count(), 1)

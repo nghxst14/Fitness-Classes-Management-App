@@ -446,8 +446,19 @@ class WeeklyProgramSlotAdmin(admin.ModelAdmin):
 
             # Recuar para a Segunda dessa semana (se escolheu outro dia).
             segunda = segunda - timedelta(days=segunda.weekday())
+            # Só os encaixes que o Sérgio marcou na página (por defeito, todos).
+            escolhidos = request.POST.getlist("slots")
+            if not escolhidos:
+                self.message_user(
+                    request,
+                    "Não escolheste nenhuma aula para gerar.",
+                    messages.WARNING,
+                )
+                return redirect("admin:bookings_weeklyprogramslot_gerar")
+
             criadas = saltadas = 0
-            for slot in WeeklyProgramSlot.objects.filter(active=True):
+            slots = WeeklyProgramSlot.objects.filter(active=True, pk__in=escolhidos)
+            for slot in slots:
                 data = segunda + timedelta(days=slot.weekday)
                 _, criada = slot.criar_sessao(data)
                 criadas += 1 if criada else 0
