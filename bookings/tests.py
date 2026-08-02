@@ -387,15 +387,30 @@ class SessionAdminActionTests(TestCase):
         response = self.client_http.get("/admin/accounts/user/")
         self.assertNotContains(response, "delete_selected")
 
-    def test_cancelar_em_massa_ja_nao_existe(self):
-        # A ação em massa foi removida de propósito (cancelamento acidental
-        # com seleção múltipla); garante que não volta por engano.
+    def test_cancelar_em_massa_pede_confirmacao_primeiro(self):
+        # Sem "confirmar", a ação mostra a página de confirmação e NÃO cancela.
         response = self.client_http.post(
             self.url,
             {"action": "cancelar_sessoes", "_selected_action": [self.sessao.pk]},
         )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "cancelar")
         self.sessao.refresh_from_db()
-        self.assertFalse(self.sessao.is_cancelled)
+        self.assertFalse(self.sessao.is_cancelled)  # ainda ativa
+
+    def test_cancelar_em_massa_confirmado_cancela_e_devolve(self):
+        response = self.client_http.post(
+            self.url,
+            {
+                "action": "cancelar_sessoes",
+                "_selected_action": [self.sessao.pk],
+                "confirmar": "sim",
+            },
+        )
+        self.sessao.refresh_from_db()
+        self.aluno.refresh_from_db()
+        self.assertTrue(self.sessao.is_cancelled)
+        self.assertEqual(self.aluno.sessoes_sg, 1)  # crédito devolvido
 
 
 class BookingAdminTelemovelTests(TestCase):

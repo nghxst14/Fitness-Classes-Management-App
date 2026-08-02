@@ -3,6 +3,7 @@ from datetime import time as dt_time, timedelta
 
 from django import forms
 from django.contrib import admin, messages
+from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.contrib.admin.widgets import AdminDateWidget, AdminSplitDateTime
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
@@ -208,11 +209,11 @@ class SessionAdmin(admin.ModelAdmin):
                 widget=AdminSplitDateTimeHora(),
             )
         return super().formfield_for_dbfield(db_field, request, **kwargs)
-    # Cancelar NÃO tem ação em massa (decisão após um cancelamento acidental
-    # com seleção múltipla): faz-se aula a aula, pelo botão na ficha da
-    # sessão, com confirmação. Reativar mantém-se em massa (não mexe em
-    # créditos, e serve o caso "chuva que afinal passou").
-    actions = ["reativar_sessoes"]
+    # Cancelar em massa tem uma PÁGINA DE CONFIRMAÇÃO (ao contrário do
+    # reativar): lista as aulas e os créditos a devolver antes de confirmar —
+    # foi um cancelamento acidental por seleção múltipla que nos levou a exigir
+    # este passo. Também há o botão individual na ficha da sessão.
+    actions = ["cancelar_sessoes", "reativar_sessoes"]
     # O checkbox is_cancelled sai do formulário pela mesma razão — o único
     # caminho para cancelar é o botão explícito. O estado fica visível
     # em leitura. O campo trainer sai porque só há um treinador (o Sérgio);
@@ -280,6 +281,54 @@ class SessionAdmin(admin.ModelAdmin):
                     messages.SUCCESS,
                 )
         return redirect("admin:bookings_session_change", object_id)
+
+    @admin.action(description="Cancelar selecionadas (devolve os créditos)")
+    def cancelar_sessoes(self, request, queryset):
+        """
+        Cancela várias aulas de uma vez, mas só depois de uma página de
+        confirmação (evita o cancelamento acidental por seleção múltipla).
+        Cancela via save() — nunca queryset.update(), que saltaria o
+        reembolso automático dos créditos.
+        """
+        ativas = queryset.filter(is_cancelled=False)
+
+        # 1º passo: sem confirmação ainda → mostrar a página de confirmação.
+        if request.POST.get("confirmar") != "sim":
+            total_creditos = sum(
+                s.bookings.filter(status=Booking.BOOKED).count() for s in ativas
+            )
+            contexto = {
+                **self.admin_site.each_context(request),
+                "title": "Cancelar aulas selecionadas",
+                "sessoes": ativas,
+                "total_creditos": total_creditos,
+                "action_checkbox_name": ACTION_CHECKBOX_NAME,
+                "selecionadas": request.POST.getlist(ACTION_CHECKBOX_NAME),
+                "opts": self.model._meta,
+            }
+            return render(
+                request, "admin/bookings/session/cancelar_confirmacao.html", contexto
+            )
+
+        # 2º passo: confirmado → cancelar cada aula (dispara o reembolso).
+        canceladas = creditos = 0
+        for sessao in ativas:
+            creditos += sessao.bookings.filter(status=Booking.BOOKED).count()
+            sessao.is_cancelled = True
+            sessao.save()
+            canceladas += 1
+        if canceladas:
+            self.message_user(
+                request,
+                f"{canceladas} aula(s) cancelada(s); {creditos} crédito(s) "
+                "devolvido(s) aos alunos. Não te esqueças de os avisar.",
+                messages.SUCCESS,
+            )
+        else:
+            self.message_user(
+                request, "Nenhuma aula ativa na seleção.", messages.WARNING
+            )
+        # Devolve None → volta à lista.
 
     @admin.action(description="Reativar selecionadas")
     def reativar_sessoes(self, request, queryset):

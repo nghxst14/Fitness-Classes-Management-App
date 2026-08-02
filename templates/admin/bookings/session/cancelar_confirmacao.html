@@ -1,0 +1,35 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+  {% if sessoes %}
+    <p>
+      Vais <strong>cancelar</strong> as aulas abaixo e devolver
+      <strong>{{ total_creditos }}</strong> crédito(s) aos alunos inscritos.
+      As aulas ficam marcadas como canceladas (podes reativá-las depois) e
+      os alunos vêem o cancelamento — <strong>avisa-os</strong>.
+    </p>
+
+    <ul>
+      {% for s in sessoes %}
+        <li>{{ s }} — {{ s.spots_taken }} inscrito(s)</li>
+      {% endfor %}
+    </ul>
+
+    <form method="post" action="{% url 'admin:bookings_session_changelist' %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="cancelar_sessoes">
+      <input type="hidden" name="confirmar" value="sim">
+      {% for pk in selecionadas %}
+        <input type="hidden" name="{{ action_checkbox_name }}" value="{{ pk }}">
+      {% endfor %}
+      <div class="submit-row">
+        <input type="submit" value="Sim, cancelar estas aulas" class="default"
+               style="background:#ba2121;">
+        <a href="{% url 'admin:bookings_session_changelist' %}" class="button cancel-link">Não, voltar</a>
+      </div>
+    </form>
+  {% else %}
+    <p>Nenhuma das aulas selecionadas está ativa (já estão canceladas).</p>
+    <a href="{% url 'admin:bookings_session_changelist' %}" class="button">Voltar</a>
+  {% endif %}
+{% endblock %}
