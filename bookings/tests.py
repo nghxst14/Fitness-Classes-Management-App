@@ -587,6 +587,34 @@ class BookViewCreditTests(TestCase):
             ).exists()
         )
 
+    def _ajax(self):
+        return self.client_http.post(
+            reverse("book", args=[self.session_obj.pk]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+    def test_ajax_com_saldo_responde_json_e_nao_redireciona(self):
+        self.student.sessoes_sg = 2
+        self.student.save(update_fields=["sessoes_sg"])
+        response = self._ajax()
+        self.assertEqual(response.status_code, 200)  # JSON, não 302
+        dados = response.json()
+        self.assertTrue(dados["ok"])
+        self.assertEqual(dados["saldos"]["sg"], 1)  # saldo já descontado
+        self.assertEqual(dados["inscritos"], 1)
+        self.assertTrue(
+            Booking.objects.filter(
+                session=self.session_obj, client=self.student, status=Booking.BOOKED
+            ).exists()
+        )
+
+    def test_ajax_sem_saldo_devolve_redirect_para_pacotes(self):
+        response = self._ajax()  # sessoes_sg = 0
+        dados = response.json()
+        self.assertFalse(dados["ok"])
+        self.assertEqual(dados["redirect"], reverse("packages"))
+        self.assertFalse(Booking.objects.filter(session=self.session_obj).exists())
+
 
 class CancelBookingTests(TestCase):
     """Cancelar uma marcação devolve 1 crédito, mas nunca em duplicado."""

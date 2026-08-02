@@ -7,12 +7,19 @@ from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import F
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .forms import SignUpForm
 from .models import Booking, Pack, Session
+
+
+def _saldos_json(user):
+    """Os 3 saldos como {tipo: quantidade}, para o JS atualizar os contadores."""
+    return {s["tipo"]: s["quantidade"] for s in user.saldos_creditos()}
 
 
 def home(request):
@@ -88,37 +95,54 @@ def schedule(request):
 @login_required
 @require_POST
 def book(request, session_id):
-    """Reserva o utilizador atual numa sessão (gasta 1 crédito)."""
+    """
+    Reserva o utilizador atual numa sessão (gasta 1 crédito do tipo da aula).
+
+    Se o pedido for AJAX (do horário, com o cabeçalho X-Requested-With),
+    responde em JSON e o aluno fica na página a poder reservar mais aulas.
+    Sem JS, funciona à mesma pelo caminho normal (redireciona no fim).
+    """
+    ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
+    User = get_user_model()
+
     with transaction.atomic():
         # select_for_update tranca a linha desta sessão até ao fim da
         # transação: dois alunos a disputar a última vaga entram em fila,
         # e o segundo já vê a vaga ocupada (em vez de ambos "ganharem").
-        # No SQLite é redundante (um escritor de cada vez); no PostgreSQL
-        # do deploy é o que garante a correção.
         session = get_object_or_404(
             Session.objects.select_for_update(), pk=session_id
         )
 
         if session.is_cancelled or session.is_past:
-            messages.error(request, "Essa sessão já não está disponível.")
+            msg = "Essa sessão já não está disponível."
+            if ajax:
+                return JsonResponse({"ok": False, "mensagem": msg, "recarregar": True})
+            messages.error(request, msg)
             return redirect("schedule")
 
         existing = Booking.objects.filter(
             session=session, client=request.user
         ).first()
         if existing and existing.status == Booking.BOOKED:
+            if ajax:  # já inscrito: para o botão, é como sucesso (mostra Reservado)
+                return JsonResponse(
+                    {"ok": True, "saldos": _saldos_json(request.user),
+                     "inscritos": session.spots_taken}
+                )
             messages.info(request, "Já estás inscrito nesta sessão.")
             return redirect("schedule")
 
         if session.is_full:
-            messages.error(request, "Esta sessão está esgotada.")
+            msg = "Esta sessão está esgotada."
+            if ajax:
+                return JsonResponse({"ok": False, "mensagem": msg, "recarregar": True})
+            messages.error(request, msg)
             return redirect("schedule")
 
         # Desconta do balde correspondente ao tipo desta aula (SG/PT/Hybrid).
         # UPDATE condicional: só desconta se ainda houver saldo desse tipo.
         # Atómico na base de dados, por isso dois pedidos em simultâneo (duplo
         # clique, duas abas) não conseguem ambos reservar com o mesmo crédito.
-        User = get_user_model()
         campo = User.campo_saldo(session.credit_type)
         descontou = (
             User.objects.filter(pk=request.user.pk, **{f"{campo}__gte": 1})
@@ -126,11 +150,15 @@ def book(request, session_id):
         )
         if not descontou:
             label = session.service_type.get_credit_type_display()
-            messages.error(
-                request,
+            msg = (
                 f"Não tens sessões de {label} disponíveis. "
-                "Adquire um pacote para reservar.",
+                "Adquire um pacote para reservar."
             )
+            if ajax:  # sem saldo: o JS leva o aluno aos pacotes
+                return JsonResponse(
+                    {"ok": False, "mensagem": msg, "redirect": reverse("packages")}
+                )
+            messages.error(request, msg)
             return redirect("packages")
 
         if existing:
@@ -144,6 +172,16 @@ def book(request, session_id):
     request.user.refresh_from_db(fields=[campo])
     restantes = request.user.creditos_de(session.credit_type)
     label = session.service_type.get_credit_type_display()
+    if ajax:
+        return JsonResponse(
+            {
+                "ok": True,
+                "saldos": _saldos_json(request.user),
+                "inscritos": session.spots_taken,
+                "mensagem": f"Reserva feita! Ficaste com {restantes} "
+                            f"sessão(ões) de {label}.",
+            }
+        )
     messages.success(
         request,
         f"Reserva feita! Ficaste com {restantes} sessão(ões) de {label}.",

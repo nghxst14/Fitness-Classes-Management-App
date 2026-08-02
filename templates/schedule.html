@@ -42,11 +42,11 @@
               </span>
 
               {% if s.id in my_session_ids %}
-                <span class="tag tag-ok">Reservado</span>
+                <span class="btn-reservado"><span class="ck">&#10003;</span> Reservado</span>
               {% elif s.is_full %}
                 <button class="btn btn-small" disabled>Esgotada</button>
               {% else %}
-                <form action="{% url 'book' s.id %}" method="post" class="inline-form">
+                <form action="{% url 'book' s.id %}" method="post" class="inline-form book-form">
                   {% csrf_token %}
                   <button type="submit" class="btn btn-small">Reservar</button>
                 </form>
@@ -59,4 +59,53 @@
   {% else %}
     <p class="muted">Não há sessões marcadas para este dia.</p>
   {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Reservar sem sair da página: a inscrição vai por trás (fetch), o botão
+  // muda logo para "Reservado" e os contadores do topo descem. Só quando o
+  // balde do tipo esgota é que se vai aos pacotes. Sem JS, o form submete
+  // normalmente e o servidor trata pelo caminho antigo.
+  document.querySelectorAll("form.book-form").forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var botao = form.querySelector("button[type=submit]");
+      botao.disabled = true;
+      fetch(form.action, {
+        method: "POST",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+        body: new FormData(form),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.ok) {
+            var reservado = document.createElement("span");
+            reservado.className = "btn-reservado";
+            reservado.innerHTML = '<span class="ck">✓</span> Reservado';
+            form.replaceWith(reservado);
+            if (data.saldos) atualizarSaldos(data.saldos);
+            if (data.inscritos != null) {
+              var cap = reservado.closest(".class-card-row");
+              var b = cap && cap.querySelector(".capacity b");
+              if (b) b.textContent = data.inscritos;
+            }
+          } else if (data.redirect) {
+            window.location = data.redirect;   // sem saldo -> pacotes
+          } else {
+            if (data.mensagem) alert(data.mensagem);
+            window.location.reload();           // esgotada/passada -> refletir estado
+          }
+        })
+        .catch(function () { window.location.reload(); });
+    });
+  });
+
+  function atualizarSaldos(saldos) {
+    Object.keys(saldos).forEach(function (tipo) {
+      var el = document.querySelector(".saldo-" + tipo + " .saldo-num");
+      if (el) el.textContent = saldos[tipo];
+    });
+  }
+</script>
 {% endblock %}

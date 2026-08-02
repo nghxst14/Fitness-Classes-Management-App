@@ -260,6 +260,25 @@ h2 {
 .tag-full { background: rgba(220,60,60,0.18); color: #ff8a8a; }
 .tag-ok { background: rgba(93,214,44,0.15); color: var(--green); }
 
+/* Estado "Reservado" (opção C): neutro/cinza com o visto a verde. Lê-se como
+   concluído, distinto do verde vivo do botão de ação "Reservar". */
+.btn-reservado {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  font-size: 0.88rem;
+  background: var(--dark-2);
+  color: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.45rem 0.9rem;
+}
+.btn-reservado .ck { color: var(--green); font-weight: 700; }
+
 /* Botões */
 .btn {
   display: inline-block;
