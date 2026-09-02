@@ -22,9 +22,14 @@ Os créditos compram-se em **pacotes**, negociados com o treinador pelo WhatsApp
 É o **primeiro projeto real** do André (programador júnior, a aprender). Ao
 trabalhar com ele: **explica as decisões, não despejes código sem contexto**,
 e quando ele pede uma explicação para decidir algo, **explica e espera** — não
-executes logo. Prioridade: entregar algo **simples e funcional** até **início
-de setembro de 2026** (nova época do cliente). Manter tudo simples é um
-requisito, não um acaso — o cliente é pequeno e quer pouca complexidade.
+executes logo. Prioridade: entregar algo **simples e funcional**.
+
+**Sobre o prazo:** a meta era "início de setembro de 2026" (nova época do
+cliente). Essa data passou e o André confirmou (set 2026) que **não há prazo
+rígido** — o objetivo passou a ser chegar a um produto acabado e polido, sem
+pressa artificial. Isso **não** revoga a simplicidade: manter tudo simples
+continua a ser requisito do cliente, não um acaso. O que mudou foi haver
+espaço para fazer bem, não licença para complicar.
 
 ---
 
@@ -33,17 +38,28 @@ requisito, não um acaso — o cliente é pequeno e quer pouca complexidade.
 - **Django 5.1** + templates server-rendered (sem React) + JS mínimo (vanilla).
 - **SQLite** em desenvolvimento; **PostgreSQL** em produção (deploy por fazer).
 - Sem Docker. Ambiente virtual `venv/`. Windows + PowerShell.
-- **Python 3.10+**. Dependência única em dev: Django (ver `requirements.txt`;
-  as de produção — gunicorn, psycopg, dj-database-url, whitenoise — estão lá
-  comentadas para o deploy).
+- **Python 3.12** (é o que o `.python-version` declara e o que o Railway vai
+  usar — manter alinhado). As dependências do `requirements.txt` instalam-se
+  **todas**, inclusive as de produção: o `settings.py` importa o
+  `dj_database_url` no topo, por isso ele é obrigatório mesmo em dev. O
+  gunicorn instala mas não corre no Windows — só é usado em produção.
 
 ```powershell
 venv\Scripts\activate
 python manage.py runserver          # http://127.0.0.1:8000/  (site) e /admin/
-python manage.py test accounts bookings   # 49 testes, todos a passar
+python manage.py test accounts bookings   # 76 testes, todos a passar
 ```
 `makemigrations` + `migrate` só quando os modelos mudam. Ao mexer no CSS, o
 browser cacheia — usar **Ctrl+F5**. Detalhes completos em `GUIA_COMANDOS.md`.
+
+**O `venv/` não é portátil** e parte-se sem avisar (aponta para o caminho
+absoluto do Python que o criou). Se o projeto mudar de máquina ou de perfil de
+utilizador, é preciso recriá-lo — ver `GUIA_COMANDOS.md`.
+
+**Mostrar o site a alguém de fora:** `.\scripts\demonstracao.ps1` levanta um
+endereço público temporário (túnel Cloudflare) com as definições de produção.
+O endereço é sorteado a cada arranque e morre com o script — serve para uma
+sessão de demonstração, não para o Sérgio ir usando. Ver `GUIA_COMANDOS.md`.
 
 **Git/GitHub:** o repositório está ligado a
 `github.com/nghxst14/Fitness-Classes-Management-App` (privado, via `gh` CLI).
@@ -73,10 +89,14 @@ commit partem o parser — escrever mensagens sem aspas duplas.
   - `templates/admin/widgets/` — templates dos widgets de admin (têm de estar
     numa pasta `templates/` de app, não na de projeto).
 - `templates/` — HTML do site (`base.html`, `base_auth.html`, `home.html`,
-  `schedule.html`, `packages.html`, `my_bookings.html`, `registration/*`) e
-  overrides do admin (`templates/admin/*`).
-- `static/` — `css/style.css` (tema do site), imagens da marca em
-  `static/img/brand/`.
+  `schedule.html`, `packages.html`, `my_bookings.html`, `registration/*`),
+  `partials/meta.html` (etiquetas de partilha e favicon, partilhado pelos dois
+  templates base) e overrides do admin (`templates/admin/*`).
+- `static/` — `css/style.css` (tema do site), `css/admin-extra.css`
+  (correções de responsividade do painel), imagens da marca em
+  `static/img/brand/` (inclui `favicon.png`).
+- `scripts/demonstracao.ps1` — levanta o site num endereço público temporário
+  para alguém de fora o ver (ver secção 2).
 
 ---
 
@@ -122,9 +142,11 @@ Estas decisões vieram de reuniões com o Sérgio e **substituem** ideias antiga
    aula a aula, há o **Programa semanal** (`WeeklyProgramSlot`): encaixes fixos
    (dia da semana + hora + tipo + local por defeito) e um botão no admin
    **"Gerar aulas da semana"** que cria as sessões de uma semana de uma vez.
-   É **idempotente** (não duplica: salta as que já existem no mesmo instante e
-   tipo) e gera em **hora de Lisboa** (DST-safe). O horário é o que é fixo;
-   tipo/local variam por semana e ajustam-se nas sessões geradas.
+   É **idempotente** (não duplica: salta as que já existem **no mesmo
+   instante**) e gera em **hora de Lisboa** (DST-safe). O horário é o que é
+   fixo; tipo/local variam por semana e **ajustam-se na própria página de
+   gerar, antes de criar as aulas** — o encaixe fica intacto. A exceção
+   pontual, depois de gerada, corrige-se na lista de Sessões. Ver a secção 7.
 
 7. **Aba de vídeos removida DE TODO** (jul 2026). A app `library` foi apagada
    por completo (código, tabelas, migração revertida com `migrate library zero`,
@@ -171,8 +193,13 @@ local→`class-online.jpg`). No `save()`, quando passa de ativa→cancelada, cha
 **`bookings.WeeklyProgramSlot`** — encaixe do programa semanal: `weekday`
 (0=Segunda … 6=Domingo), `start_time`, `service_type` (por defeito), `location`
 (por defeito), `capacity` (vazio = usa a do service_type), `duration_minutes`,
-`active`. Método `criar_sessao(data)` cria a `Session` nessa data em hora de
-Lisboa, sem duplicar.
+`active`. Métodos: `instante(data)` (o início em hora de Lisboa),
+`valores_por_defeito()` (tipo/local/lotação do encaixe) e
+`criar_sessao(data, **ajustes)`, que cria a `Session` nessa data — os
+`ajustes` substituem os valores por defeito **só naquela criação**, sem
+alterar o encaixe. A verificação de duplicados compara **só o instante**
+(ver "Decisões fechadas" no `PENDENTES.md`: duas aulas diferentes à mesma
+hora não são possíveis, por opção).
 
 **`bookings.Booking`** — marcação: `session` (FK CASCADE), `client` (FK CASCADE),
 `status` (`booked`/`cancelled`/`attended`/`no_show`), `client_pack` (FK legado,
@@ -196,7 +223,11 @@ Rotas em `bookings/urls.py`; login/logout em `config/urls.py`.
 - `home` (`/`) — antevisão das próximas 6 sessões futuras não canceladas.
 - `signup` (`/registar/`) — auto-registo por telemóvel; faz login logo.
 - `schedule` (`/horario/`, login) — sessões de um dia + navegação por dia
-  (limitada a −3/+14 dias); passa `has_prev`/`has_next` ao template.
+  (limitada a −3/+14 dias); passa `has_prev`/`has_next` ao template. O cartão
+  tem quatro estados, e a **ordem no template importa**: `is_past`
+  ("Já decorreu", cartão esbatido) é testado **antes** de "Reservado", senão
+  uma aula passada a que o aluno foi continuava a mostrar-se como reserva
+  ativa.
 - `book` (`/marcar/<id>/`, POST, login) — dentro de `transaction.atomic()` com
   `select_for_update()` na sessão: valida (não cancelada, não passada, não
   duplicada, não cheia), **desconta 1 do balde do tipo da aula** com UPDATE
@@ -222,6 +253,16 @@ Pacotes, Programa semanal**. Escondida: **Grupos** (`admin.site.unregister`).
 templates que estendem o admin — **sem pacotes de tema externos** (decisão:
 não prender a manutenção a terceiros; o azul do Django fica como está).
 
+**`static/css/admin-extra.css`** — correções de responsividade, carregado em
+todas as páginas pelo `base_site.html`. Vai no bloco `responsive` e **depois**
+do `block.super`, que é o último sítio onde o Django carrega folhas de estilo:
+posto no `extrastyle` ficava antes da `responsive.css` dele e perdia todos os
+empates de especificidade. Cobre: a barra de botões do topo (que flutuava por
+cima do título), o painel de filtros a esmagar a tabela em tablet, o widget de
+pesquisa a sair fora do ecrã, e os alvos de toque. Ao mexer no layout do
+admin, **repetir a medição** — dois defeitos passaram por se ter auditado o
+estado anterior e dado por bom para o novo.
+
 **Overrides globais do admin** (`templates/admin/`):
 - `base_site.html` — seta **"← Voltar"** (via `history.back()`, preserva
   pesquisa/filtros) no topo de fichas e confirmações de remoção.
@@ -236,6 +277,12 @@ não prender a manutenção a terceiros; o azul do Django fica como está).
   Marcações filtradas por essa aula), **"Estado"** (Agendada verde / Concluída
   cinza / Cancelada vermelho — substitui o booleano `is_cancelled` invertido).
 - Ordenação `-start` (mais recentes primeiro).
+- **Tipo, local e lotação editáveis na própria lista** (`list_editable`), para
+  o imprevisto de última hora (a aula de amanhã muda de local) sem abrir a
+  ficha. A hora fica de fora: mudá-la é mudar a aula, e faz-se na ficha.
+  O `autocomplete_fields` foi retirado — 3 tipos de serviço e 4 locais não
+  justificam um widget de pesquisa que vai ao servidor e não encolhe com o
+  ecrã (gravava uma largura fixa que saía fora da margem no telemóvel).
 - Filtros **checkbox**: `EstadoFilter` (agendadas/concluídas/canceladas) e
   `TempoFilter` (futuras/passadas), combináveis entre si e com a barra de datas.
 - **Cancelar é individual, não em massa** (após um cancelamento acidental por
@@ -260,9 +307,25 @@ sem número (ex.: admin) aparecem sem link. `lookup_allowed` autoriza o filtro
 `session__id__exact` que vem da coluna "Inscritos".
 
 **Programa semanal (`WeeklyProgramSlotAdmin`)** — botão **"Gerar aulas da
-semana"** (`change_list.html` + `gerar_semana.html`), rota `gerar_semana_view`:
-escolhe a Segunda da semana (recua para Segunda se escolher outro dia), gera as
-sessões dos encaixes ativos, sem duplicar, e mostra quantas criou/saltou.
+semana"** (`change_list.html` + `gerar_semana.html`), rota `gerar_semana_view`.
+
+São **duas páginas com propósitos diferentes**, e isso é deliberado (chegou a
+equacionar-se fundi-las; ver `PENDENTES.md`):
+- A **lista** é o *molde*. O que se muda aqui vale para todas as semanas
+  geradas daqui para a frente.
+- A página de **gerar** são os ajustes *daquela semana*. Cada linha tem
+  checkbox + dia + hora (fixa) + **tipo/local/lotação editáveis**,
+  pré-preenchidos a partir do encaixe. O molde não é tocado.
+
+A geração: escolhe a Segunda da semana (recua para Segunda se escolher outro
+dia), cria só os encaixes ativos que ficaram marcados, e **nomeia cada aula**
+nas mensagens em vez de dar contagens. Há uma opção **"atualizar as que já
+existirem"** (desmarcada por defeito) que aplica os ajustes às aulas já
+geradas **mantendo as inscrições** — recusa baixar a lotação abaixo dos
+inscritos e recusa mudar o tipo de uma aula com gente (mudaria o balde de
+créditos que a paga). **Nenhum caminho desta página apaga aulas**: apagar
+levaria as marcações atrás em cascata e desinscrevia toda a gente sem aviso.
+Para destruir uma aula existe o botão "Cancelar esta aula".
 
 **Utilizadores (`accounts/admin.py`)** — 3 saldos editáveis na lista
 (`list_editable`), filtro "Faz anos hoje" (`BirthdayTodayFilter`), **sem remoção
@@ -314,8 +377,21 @@ permissões na ficha (só um superuser).
 - Imagens em `static/img/brand/`: `logo-restart-now.png`, `class-outdoor.jpg`,
   `class-indoor.jpg`, `class-online.jpg` (todas otimizadas a ~1600px). O cartão
   de aula escolhe a imagem pelo local (indoor/outdoor/online).
+- **`favicon.png`** — a seta circular verde do logótipo, isolada e posta num
+  quadrado preto. É a marca, não o texto: o wordmark a 16px seria ilegível.
+- **Etiquetas de partilha** (`templates/partials/meta.html`) — Open Graph,
+  `description`, `theme-color` e favicon, partilhados pelos dois templates
+  base. Existem por causa do WhatsApp, que é o canal deste negócio: sem elas o
+  link colado aparece como texto sem imagem nem título. O `og:image` é
+  construído a partir do pedido, por isso funciona em dev, no túnel e em
+  produção sem ninguém trocar nada.
 - `base.html` — barra de topo com **menu hambúrguer** abaixo de 720px; foco
-  visível (`:focus-visible` verde). Login/registo usam `base_auth.html`.
+  visível (`:focus-visible` verde); link "Saltar para o conteúdo" e a lista de
+  avisos com `aria-live` (usada também pelo JS do horário, para o aviso de
+  reserva ser indistinguível de uma mensagem do servidor — não há `alert()`).
+  Login/registo usam `base_auth.html`.
+- **Alvos de toque de 44px** em ecrãs estreitos (Apple HIG). No admin ficaram
+  mais contidos (34-40px): é uma ferramenta densa e 44px desproporcionava-a.
 - **Comentários de template:** `{# #}` só numa linha — comentário multi-linha
   vira texto na página. Usar sempre `{% comment %}...{% endcomment %}`.
   (Este erro já ocorreu 2×; verificar sempre no browser após mexer em templates.)
@@ -324,13 +400,16 @@ permissões na ficha (só um superuser).
 
 ## 10. Testes
 
-**49 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
+**76 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
 throttle de login, normalização/registo/login por telemóvel, isolamento de
 créditos por tipo, reembolsos (cancelar sessão, apagar sessão/marcação, cancelar
 reserva), filtros e ações do admin de Sessões, coluna Telemóvel, gerador do
-programa semanal (inc. não-duplicar), limites de navegação do horário, imagem do
-cartão, e o widget de hora. Correr sempre `manage.py test accounts bookings`
-antes de commitar mudanças de lógica.
+programa semanal (inc. não-duplicar, ajustes aplicados à aula e não ao molde,
+atualizar sem perder inscrições, e as recusas de lotação e de tipo), limites de
+navegação do horário, imagem do cartão, o widget de hora, aulas passadas sem
+botão de reservar, etiquetas de partilha, preços escondidos e autofill do
+registo. Correr sempre `manage.py test accounts bookings` antes de commitar
+mudanças de lógica.
 
 ---
 
@@ -338,27 +417,44 @@ antes de commitar mudanças de lógica.
 
 **FEITO:** estrutura e modelos; login/registo por telemóvel com normalização;
 créditos por tipo (SG/PT/Hybrid) com reserva/cancelamento/reembolso atómicos;
-horário por dia com limites; programa semanal + gerador; pacotes com WhatsApp;
-admin muito personalizado (cancelar/reativar por aula, filtros checkbox, coluna
-Inscritos e Telemóvel, widget de hora, seta Voltar, botão Limpar); tema visual
-RESTART NOW com faixa de saldos e selos por tipo; imagens otimizadas; throttle
-de login; recuperação via WhatsApp; 49 testes; GitHub ligado (privado).
+horário por dia com limites e os quatro estados do cartão; programa semanal +
+gerador com ajustes por semana; pacotes com WhatsApp (sem preços); admin muito
+personalizado (cancelar/reativar por aula, filtros checkbox, coluna Inscritos e
+Telemóvel, widget de hora, seta Voltar, botão Limpar, edição em linha nas
+Sessões); tema visual RESTART NOW com faixa de saldos e selos por tipo;
+etiquetas de partilha e favicon; responsividade verificada em todo o site e
+admin (360/390/768/1024/1400px); throttle de login; recuperação via WhatsApp;
+76 testes; GitHub ligado (privado).
 
 **POR FAZER (ver `PENDENTES.md` para o detalhe):**
-1. **Info do Sérgio sobre pacotes** — nomes/nº de sessões/preços/`credit_type`
-   reais; confirmar a natureza do "Hybrid"; `credit_type` de cada Tipo de
-   Serviço (ficaram Small Group por defeito). Os dados atuais são de teste.
-2. **Deploy no Railway** — o **código já está preparado** (gunicorn,
+1. **Info do Sérgio sobre pacotes** — nomes/nº de sessões/`credit_type` reais;
+   confirmar a natureza do "Hybrid"; `credit_type` de cada Tipo de Serviço
+   (ficaram Small Group por defeito). Os dados atuais são de teste. Confirmar
+   também as quatro decisões construídas com o padrão do setor (lista de
+   espera, faltas, expiração — ver `PENDENTES.md`).
+2. **Corrigir dois encaixes do programa semanal** — Segunda 07:00 e 08:00 estão
+   como "PT Individual" com lotação 12. É um resto dos testes: geradas assim,
+   criam aulas individuais com doze vagas a cobrar créditos de PT.
+3. **Deploy no Railway** — o **código já está preparado** (gunicorn,
    whitenoise, PostgreSQL via `DATABASE_URL`, segurança HTTPS atrás de proxy,
-   throttle com IP real, `Procfile`, `.python-version`, `.env.example`). Falta
-   a parte manual: criar a conta no Railway, ligar o repositório, adicionar o
-   PostgreSQL e definir as variáveis. **Passo a passo em `DEPLOY.md`.**
-   Alojamento ~5–12€/mês (cliente).
-3. **`SERGIO_WHATSAPP`** — em produção define-se por variável de ambiente (o
+   throttle com IP real, `Procfile` com `collectstatic`, `.python-version`,
+   `.env.example`). Ensaiado com `DEBUG=False` num túnel: `check --deploy`
+   passa limpo. Falta a parte manual: criar a conta no Railway, ligar o
+   repositório, adicionar o PostgreSQL e definir as variáveis. **Passo a passo
+   em `DEPLOY.md`.** Alojamento ~5–12€/mês (cliente).
+4. **`SERGIO_WHATSAPP`** — em produção define-se por variável de ambiente (o
    default no código é o número de TESTE do André).
-4. **Limpar dados de teste** antes do deploy (User1/2/3, Ana Teste, aulas e
-   pacotes fictícios).
-5. Mini-guia do admin para o Sérgio (formação de entrega).
+5. **Limpar dados de teste** antes do deploy: User1/2/3, Ana Teste, Ananas, o
+   superuser **`claude-preview`**, os 12 alunos com `(demo)` no apelido, a
+   conta `912000000`, e as aulas com `DEMO - apagar antes do deploy` no campo
+   de notas.
+6. **Rasto dos créditos** — o saldo é um inteiro sobrescrito e as alterações
+   automáticas usam `.update()`, que não deixa histórico. Quando um aluno
+   perguntar por que tem o saldo que tem, não há resposta possível. É a maior
+   lacuna conhecida; ver o relatório de auditoria e o `PENDENTES.md`.
+7. **Cópias de segurança, RGPD, monitorização de erros e páginas 404/500** —
+   nenhuma existe. Todas bloqueiam um lançamento a sério.
+8. Mini-guia do admin para o Sérgio (formação de entrega).
 
 **Decisões fechadas (não fazer):** sem lembrete automático de aniversários (só
 o filtro manual "Faz anos hoje"); sem pagamentos online; sem integração de
@@ -374,6 +470,13 @@ parte); `ClientPack` apagado de todo.
 - Templates de **widgets** de formulário vivem em `<app>/templates/`, não na
   pasta de projeto (o renderizador de formulários procura nas apps).
 - Comentários de template multi-linha: `{% comment %}`, nunca `{# #}`.
-- Commits no PowerShell 5.1: **sem aspas duplas** na mensagem.
+- Commits no PowerShell 5.1: **sem aspas duplas** na mensagem. O PowerShell 5.1
+  também **não aceita `&&`** para encadear comandos — usar `;`.
 - `db.sqlite3` é local (gitignored) — mudar dados no admin/shell **não** vai
-  para o Git; só o código vai.
+  para o Git; só o código vai. É por isso que a base de dados de
+  desenvolvimento tem de ser copiada à mão quando o projeto muda de máquina.
+- **Ao mexer no layout, voltar a medir.** Auditar antes de alterar e dar o
+  resultado por bom para depois já custou dois defeitos: uma tabela que passou
+  a arrastar a página inteira (e a cortar o cabeçalho) por lhe terem sido
+  acrescentadas colunas, e dois botões com alturas diferentes por um ser
+  `<input>` (border-box) e o outro `<a>` (content-box).

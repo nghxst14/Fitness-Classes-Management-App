@@ -109,6 +109,45 @@ Arranca o servidor de desenvolvimento. Depois abre no browser
 `http://127.0.0.1:8000/`. Para **parar** o servidor: `Ctrl + C` no terminal.
 O servidor recarrega sozinho quando gravas alterações no código.
 
+Este é o servidor para **trabalhares**. Só funciona no teu computador — mais
+ninguém lhe consegue chegar, e é isso que o torna rápido e seguro.
+
+---
+
+## 5b. Mostrar o site a alguém de fora (ao Sérgio, por exemplo)
+
+Quando o Sérgio precisar de abrir o site no telemóvel dele, de qualquer rede,
+há um script que trata de tudo:
+
+```powershell
+.\scripts\demonstracao.ps1
+```
+
+O que ele faz, por esta ordem: prepara os ficheiros estáticos, arranca o
+servidor com as definições de **produção** (as mesmas do Railway), abre um
+túnel público e **só te dá o endereço depois de confirmar que responde**.
+Carregas Enter e fecha tudo — servidor e túnel.
+
+Da primeira vez é preciso instalar a ferramenta do túnel:
+
+```powershell
+winget install --id Cloudflare.cloudflared --source winget
+```
+
+**Coisas a saber:**
+
+- O endereço é **sorteado a cada arranque**. Não dá para manter o mesmo link:
+  se fechares e voltares a abrir, tens de mandar o novo.
+- Morre quando o computador suspender ou quando fechares o script. Serve para
+  uma sessão combinada contigo por perto, **não** para o Sérgio ir
+  experimentando ao longo da semana. Para isso é preciso o alojamento a sério
+  (ver `DEPLOY.md`).
+- Enquanto está aberto, **o `/admin/` fica acessível a quem tenha o endereço**.
+  O endereço é impossível de adivinhar, mas confirma que a password do admin é
+  longa antes de espalhares o link.
+- Corre com `DEBUG=False` de propósito: é o mesmo ambiente do Railway, por isso
+  serve de ensaio geral do deploy.
+
 ---
 
 ## 6. Abrir o terminal na pasta certa
