@@ -187,17 +187,28 @@ class SessionAdmin(admin.ModelAdmin):
         "__str__",
         "service_type",
         "location",
+        "capacity",
         "start",
         "inscritos",
         "estado",
     )
+    # Editar na própria lista: o programa semanal é o molde, mas há sempre o
+    # imprevisto de última hora (a aula de amanhã muda de local). Assim o
+    # Sérgio corrige várias de uma vez e grava uma só. A hora fica de fora de
+    # propósito — mudá-la é mudar a aula, e isso faz-se na ficha.
+    list_editable = ("service_type", "location", "capacity")
     # Mais recentes primeiro: sem isto, as aulas mais ANTIGAS apareciam no
     # topo e o Sérgio teria de paginar até chegar à semana atual.
     ordering = ("-start",)
     list_filter = (EstadoFilter, TempoFilter, "service_type", "location")
     search_fields = ("title", "service_type__name")
     date_hierarchy = "start"
-    autocomplete_fields = ("location", "service_type")
+    # NOTA: o autocomplete_fields foi retirado (ago 2026). O widget de pesquisa
+    # existe para escolher entre centenas de opções; aqui são 3 tipos de
+    # serviço e 4 locais. Uma caixa normal abre logo, sem ir buscar nada ao
+    # servidor — e, ao contrário do select2, encolhe com o ecrã (o select2
+    # gravava uma largura fixa que saía fora da margem no telemóvel). Com uma
+    # coluna editável por linha na lista, a diferença nota-se ainda mais.
     inlines = [BookingInline]
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
@@ -505,21 +516,28 @@ class WeeklyProgramSlotAdmin(admin.ModelAdmin):
                 )
                 return redirect("admin:bookings_weeklyprogramslot_gerar")
 
-            criadas = saltadas = 0
+            atualizar = request.POST.get("atualizar") == "sim"
             slots = WeeklyProgramSlot.objects.filter(active=True, pk__in=escolhidos)
+
+            criadas, atualizadas, saltadas, recusadas = [], [], [], []
             for slot in slots:
                 data = segunda + timedelta(days=slot.weekday)
-                _, criada = slot.criar_sessao(data)
-                criadas += 1 if criada else 0
-                saltadas += 0 if criada else 1
+                ajustes = self._ajustes_do_pedido(request, slot)
+                sessao, criada = slot.criar_sessao(data, **ajustes)
+                etiqueta = f"{slot.get_weekday_display()} {slot.start_time:%H:%M}"
 
-            fim = segunda + timedelta(days=6)
-            self.message_user(
-                request,
-                f"Semana de {segunda:%d/%m} a {fim:%d/%m}: {criadas} aula(s) "
-                f"criada(s), {saltadas} já existia(m) (não duplicadas).",
-                messages.SUCCESS,
-            )
+                if criada:
+                    criadas.append(etiqueta)
+                elif not atualizar:
+                    saltadas.append(etiqueta)
+                else:
+                    problema = self._aplicar_ajustes(sessao, ajustes)
+                    if problema:
+                        recusadas.append(f"{etiqueta} — {problema}")
+                    else:
+                        atualizadas.append(etiqueta)
+
+            self._relatar(request, segunda, criadas, atualizadas, saltadas, recusadas)
             return redirect("admin:bookings_session_changelist")
 
         # GET: página de confirmação com a data e a pré-visualização.
@@ -527,9 +545,123 @@ class WeeklyProgramSlotAdmin(admin.ModelAdmin):
             **self.admin_site.each_context(request),
             "title": "Gerar aulas da semana",
             "segunda": self._proxima_segunda(),
-            "slots": WeeklyProgramSlot.objects.filter(active=True),
+            "slots": WeeklyProgramSlot.objects.filter(active=True).select_related(
+                "service_type", "location"
+            ),
+            # Para as caixas de seleção de cada linha.
+            "tipos": ServiceType.objects.filter(active=True),
+            "locais": Location.objects.filter(active=True),
             "opts": self.model._meta,
         }
         return render(
             request, "admin/bookings/weeklyprogramslot/gerar_semana.html", contexto
         )
+
+    @staticmethod
+    def _ajustes_do_pedido(request, slot):
+        """
+        Os valores que o Sérgio escolheu na linha deste encaixe. Só entram no
+        dicionário os que ele mexeu de facto — os restantes ficam a cargo do
+        `valores_por_defeito()` do encaixe.
+
+        Valores inválidos (um id que não existe, texto na lotação) são
+        ignorados em silêncio e cai-se no valor por defeito: é uma página de
+        escolhas, não um formulário onde valha a pena chatear com erros.
+        """
+        ajustes = {}
+
+        tipo_id = request.POST.get(f"tipo_{slot.pk}")
+        if tipo_id:
+            tipo = ServiceType.objects.filter(pk=tipo_id).first()
+            if tipo:
+                ajustes["service_type"] = tipo
+
+        # O local é um caso especial: vazio NÃO é "não mexeu", é "online".
+        # Por isso o campo só conta quando a linha vem mesmo no pedido.
+        campo_local = f"local_{slot.pk}"
+        if campo_local in request.POST:
+            local_id = request.POST.get(campo_local)
+            ajustes["location"] = (
+                Location.objects.filter(pk=local_id).first() if local_id else None
+            )
+
+        lotacao = request.POST.get(f"lotacao_{slot.pk}", "").strip()
+        if lotacao.isdigit() and int(lotacao) > 0:
+            ajustes["capacity"] = int(lotacao)
+
+        return ajustes
+
+    @staticmethod
+    def _aplicar_ajustes(sessao, ajustes):
+        """
+        Aplica os ajustes a uma aula que JÁ existe, mantendo as inscrições.
+
+        Devolve uma frase com o motivo se a alteração for recusada, ou None se
+        correu bem. As duas recusas são onde atualizar podia magoar alguém:
+
+        - baixar a lotação abaixo dos já inscritos deixava a aula sobrelotada;
+        - mudar o tipo de uma aula com gente inscrita muda o balde de créditos
+          que a paga, e essas pessoas pagaram com o outro. Para isso, o
+          caminho certo é cancelar a aula (que devolve os créditos, com
+          confirmação e contagem) e gerar de novo.
+
+        Nunca se apaga nada aqui: apagar a aula levaria as marcações atrás em
+        cascata e desinscrevia toda a gente sem aviso.
+        """
+        inscritos = sessao.spots_taken
+
+        nova_lotacao = ajustes.get("capacity")
+        if nova_lotacao is not None and nova_lotacao < inscritos:
+            return (
+                f"já tem {inscritos} inscrito(s) e a lotação pedida era "
+                f"{nova_lotacao}"
+            )
+
+        novo_tipo = ajustes.get("service_type")
+        if novo_tipo and novo_tipo != sessao.service_type and inscritos:
+            return (
+                f"já tem {inscritos} inscrito(s) e mudar o tipo mudava os "
+                "créditos que a pagam"
+            )
+
+        for campo, valor in ajustes.items():
+            setattr(sessao, campo, valor)
+        sessao.save(update_fields=list(ajustes) or None)
+        return None
+
+    def _relatar(self, request, segunda, criadas, atualizadas, saltadas, recusadas):
+        """Diz exatamente o que aconteceu a cada aula, e não só as contagens."""
+        fim = segunda + timedelta(days=6)
+        cabecalho = f"Semana de {segunda:%d/%m} a {fim:%d/%m}."
+
+        if criadas:
+            self.message_user(
+                request,
+                f"{cabecalho} {len(criadas)} aula(s) criada(s): "
+                f"{', '.join(criadas)}.",
+                messages.SUCCESS,
+            )
+        if atualizadas:
+            self.message_user(
+                request,
+                f"{len(atualizadas)} aula(s) já existente(s) atualizada(s), "
+                f"sem mexer nas inscrições: {', '.join(atualizadas)}.",
+                messages.SUCCESS,
+            )
+        if saltadas:
+            self.message_user(
+                request,
+                f"{len(saltadas)} já existia(m) e ficaram como estavam: "
+                f"{', '.join(saltadas)}. Para lhes aplicares os ajustes, "
+                "volta a gerar com a opção de atualizar marcada.",
+                messages.WARNING,
+            )
+        if recusadas:
+            self.message_user(
+                request,
+                f"{len(recusadas)} não foi/foram alterada(s): "
+                f"{'; '.join(recusadas)}.",
+                messages.ERROR,
+            )
+        if not any((criadas, atualizadas, saltadas, recusadas)):
+            self.message_user(request, f"{cabecalho} Nada a fazer.", messages.INFO)

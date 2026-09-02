@@ -1,0 +1,230 @@
+/*
+  Correções de responsividade do painel de administração.
+
+  Carregado em todas as páginas do admin pelo templates/admin/base_site.html.
+  Não é um tema: são correções pontuais em cima do admin do Django, que fica
+  a ser o dono do aspeto (decisão registada no PENDENTES.md — não prender a
+  manutenção a pacotes de terceiros).
+*/
+
+/* --- Barra de botões do topo (.object-tools) ------------------------------
+   O admin põe esta barra a flutuar à direita com margin-top:-48px, para
+   subir ao nível do <h1>. Isso só funciona com títulos curtos. Os nossos
+   não são: o verbose_name "Aula recorrente (programa semanal)" produz um
+   h1 de 670px, e a barra com dois botões mede 529px — não cabem lado a
+   lado dentro de uma área de conteúdo de 670px, seja qual for a largura do
+   ecrã. Resultado: os botões ficavam POR CIMA do texto do título, tanto em
+   tablet como em computador.
+
+   Solução: a barra deixa de flutuar e passa a ficar por baixo do título,
+   numa linha que quebra quando não há espaço. Os botões ficam sempre no
+   mesmo sítio, o que também é mais previsível para quem usa o painel. */
+.object-tools {
+  float: none;
+  position: static;
+  margin: 0 0 16px;
+  padding-left: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* O "li + li" tem de constar: o Django declara
+   `.object-tools li + li { margin-left: 15px }`, e era esse avanço que
+   empurrava o SEGUNDO botão 15px para a direita — quando os dois ficavam um
+   por cima do outro, apareciam desalinhados. O espaçamento passa a ser o
+   `gap`, que não desalinha quando muda de linha. */
+.object-tools li,
+.object-tools li + li {
+  float: none;
+  margin: 0;
+  height: auto;
+  list-style: none;
+}
+
+/* Tamanho dos botões. O admin usa 3px de altura de preenchimento com letra
+   de 11px — pequeno de mais para tocar. Mas 44px, a altura que o site usa,
+   fica desproporcionada num botão destes: um rótulo minúsculo dentro de uma
+   pastilha enorme. 34px com a letra um ponto maior é o meio-termo — dá para
+   o dedo sem parecer que o botão foi inchado. */
+.object-tools li a:link,
+.object-tools li a:visited {
+  float: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 6px 14px;
+  font-size: 0.75rem;
+  box-sizing: border-box;
+}
+
+/* Quando não cabem lado a lado, empilham — e empilham ALINHADOS, com a
+   mesma largura, em vez de ficarem dois retângulos de tamanhos diferentes
+   e com origens diferentes. */
+@media (max-width: 767px) {
+  .object-tools {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .object-tools li,
+  .object-tools li + li { width: 100%; }
+  .object-tools li a:link,
+  .object-tools li a:visited { width: 100%; }
+}
+
+/* O título deixa de precisar de espaço reservado à direita para a barra. */
+#content h1 { margin-right: 0; }
+
+/* --- Painel de filtros em ecrã intermédio (tablet) ------------------------
+   O #changelist é uma linha flex: tabela à esquerda, filtros à direita. A
+   partir de 1024px o Django encolhe os filtros para 200px, mas mantém-nos
+   ao lado. Num iPad em retrato, com a barra lateral de navegação aberta,
+   sobravam 184px para a tabela — ilegível, com as colunas todas cortadas.
+
+   Aqui os filtros passam para BAIXO da tabela, a toda a largura. A tabela
+   recupera o espaço todo e os filtros continuam a um deslize de distância. */
+@media (max-width: 1100px) {
+  #changelist { flex-direction: column; }
+  /* Um filho de flex tem min-width:auto, ou seja, nunca encolhe abaixo do
+     conteúdo: o contentor esticava até à largura da tabela (790px) e
+     empurrava a página inteira para fora do ecrã. O min-width:0 devolve-lhe
+     a permissão de ser mais estreito, e a tabela desliza lá dentro. */
+  .changelist-form-container {
+    min-width: 0;
+    max-width: 100%;
+  }
+  #changelist .results {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #changelist-filter {
+    flex-basis: auto;
+    width: auto;
+    max-width: none;
+    margin: 16px 0 0;
+    position: static;
+  }
+  /* Em linha, para não ficar uma coluna de filtros com um quilómetro. */
+  #changelist-filter > * { break-inside: avoid; }
+  @media (min-width: 560px) {
+    #changelist-filter {
+      columns: 2;
+      column-gap: 24px;
+    }
+  }
+}
+
+/* --- Tabelas de listagem em ecrã estreito ---------------------------------
+   As listas têm muitas colunas (Sessões tem 6). O admin já deixa a tabela
+   deslizar na horizontal, mas sem qualquer pista visual — parece que a
+   coluna está cortada. A sombra na margem direita mostra que há mais para
+   ver, e desaparece quando se chega ao fim. */
+@media (max-width: 900px) {
+  #changelist .results {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    background:
+      linear-gradient(to right, var(--body-bg) 30%, rgba(0, 0, 0, 0)) left center,
+      linear-gradient(to left, var(--body-bg) 30%, rgba(0, 0, 0, 0)) right center;
+    background-size: 28px 100%, 28px 100%;
+    background-repeat: no-repeat;
+    background-attachment: local, local;
+  }
+}
+
+/* --- Página "Gerar aulas da semana" ---------------------------------------
+   A tabela tem uma caixa de seleção por linha. Sem largura mínima, a coluna
+   da lotação encolhia até o número não se ver. */
+.lotacao { width: 5rem; }
+#content table select { max-width: 100%; }
+
+/* A tabela é larga (6 colunas, três delas com campos) e num telemóvel não
+   cabe. Tem de deslizar DENTRO desta caixa: se for a página a deslizar, o
+   cabeçalho azul e a barra de migalhas ficam para trás e aparecem cortados,
+   porque a largura deles é a do ecrã e não a da página deslizada.
+
+   A sombra nas margens mostra que há mais para ver e desaparece quando se
+   chega ao fim — sem ela parece que a coluna está simplesmente cortada. */
+.tabela-rolavel {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  background:
+    linear-gradient(to right, var(--body-bg) 30%, rgba(0, 0, 0, 0)) left center,
+    linear-gradient(to left, var(--body-bg) 30%, rgba(0, 0, 0, 0)) right center;
+  background-size: 28px 100%, 28px 100%;
+  background-repeat: no-repeat;
+  background-attachment: local, local;
+}
+.tabela-rolavel table { width: 100%; }
+
+/* --- Campos de pesquisa (select2) nas fichas ------------------------------
+   Os campos com autocomplete_fields (tipo de serviço, local) são desenhados
+   pelo select2, que grava uma largura FIXA no próprio elemento
+   (style="width: 320px") calculada no arranque da página. Não encolhe com o
+   ecrã: num iPad o campo acabava 50px para lá da margem direita e a ponta
+   ficava cortada. O !important é preciso porque um estilo em linha ganha a
+   qualquer folha de estilos sem ele. */
+@media (max-width: 1100px) {
+  .form-row .select2-container {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* --- Alvos de toque ------------------------------------------------------
+   Mais contidos do que os 44px do site: o painel é uma ferramenta densa e
+   inchar tudo tornava-o desproporcionado. As caixas de seleção das listas
+   são a exceção que mais importa — é o gesto que o Sérgio repete mais
+   (escolher aulas para uma ação em massa) e eram as mais pequenas do
+   painel. */
+@media (max-width: 900px) {
+  /* Os botões do topo (.object-tools) têm o tamanho definido acima e ficam
+     de fora daqui de propósito: 44px deixava-os grossos e desproporcionados
+     em relação ao resto do painel. */
+  .submit-row input,
+  .submit-row a,
+  #changelist-form .actions .button {
+    min-height: 40px;
+    /* Sem isto os dois botões da mesma linha ficam com alturas diferentes: o
+       <input> do "Gerar" já é border-box (a altura inclui o preenchimento),
+       mas o <a> do "Cancelar" é content-box, e aí os 7px de cima e de baixo
+       SOMAM-SE ao mínimo — 40 + 14 = 54px. Igualar o modelo de caixa põe os
+       dois exatamente à mesma altura. */
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #changelist .action-checkbox-column,
+  #changelist td.action-checkbox {
+    min-width: 44px;
+  }
+  #changelist input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+  /* A barra de ações ("Ação: ... Ir") empilha em vez de espremer. */
+  #changelist-form .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  #changelist-form .actions select { max-width: 100%; }
+}
+
+/* --- Cabeçalho ------------------------------------------------------------
+   Em telemóvel, "Bem-vindo, X / Ver site / Modificar palavra-passe / Sair"
+   partia-se em linhas desiguais e o botão de tema caía sozinho para baixo. */
+@media (max-width: 767px) {
+  #user-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 4px 10px;
+    text-align: center;
+  }
+}

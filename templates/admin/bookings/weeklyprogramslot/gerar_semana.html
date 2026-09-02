@@ -2,10 +2,14 @@
 
 {% block content %}
   <p>
-    Escolhe a semana e <strong>quais</strong> das aulas do programa queres criar
-    (por defeito, todas). As que já existirem no mesmo dia e hora são saltadas —
-    podes gerar sem medo de duplicar. Depois é só ajustar as sessões dessa semana
-    onde for preciso.
+    Escolhe a semana e ajusta cada aula <strong>antes</strong> de gerar: o tipo,
+    o local e a lotação vêm preenchidos com os valores do programa semanal, e
+    podes mudá-los só para esta semana. Desmarca as que não queres criar.
+  </p>
+  <p class="help">
+    O programa semanal <strong>não é alterado</strong> por nada do que mudares
+    aqui — ele é o ponto de partida, não o registo da semana. A hora não se
+    edita: é por ela que se sabe se a aula já foi gerada.
   </p>
 
   <form method="post" action="{% url 'admin:bookings_weeklyprogramslot_gerar' %}">
@@ -18,30 +22,81 @@
 
     {% if slots %}
       <h2>Aulas a gerar</h2>
-      <table>
-        <thead>
-          <tr>
-            <th><input type="checkbox" id="toggle-todos" checked
-                       title="Marcar/desmarcar todas"></th>
-            <th>Dia</th><th>Hora</th><th>Tipo</th><th>Local</th><th>Lotação</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for slot in slots %}
+      {% comment %}
+        A tabela desliza DENTRO desta caixa. Sem isto era a página inteira a
+        deslizar para o lado, e o cabeçalho azul — que tem a largura do ecrã,
+        não a da página — ficava para trás e cortado.
+      {% endcomment %}
+      <div class="tabela-rolavel">
+        <table>
+          <thead>
             <tr>
-              <td>
-                <input type="checkbox" name="slots" value="{{ slot.pk }}"
-                       class="slot-check" checked>
-              </td>
-              <td>{{ slot.get_weekday_display }}</td>
-              <td>{{ slot.start_time|time:"H:i" }}</td>
-              <td>{{ slot.service_type.name }}</td>
-              <td>{{ slot.location.name|default:"Online" }}</td>
-              <td>{{ slot.capacity|default:slot.service_type.default_capacity }}</td>
+              <th><input type="checkbox" id="toggle-todos" checked
+                         title="Marcar/desmarcar todas"></th>
+              <th>Dia</th><th>Hora</th><th>Tipo</th><th>Local</th><th>Lotação</th>
             </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {% for slot in slots %}
+              <tr>
+                <td>
+                  <input type="checkbox" name="slots" value="{{ slot.pk }}"
+                         class="slot-check" checked
+                         aria-label="Gerar {{ slot.get_weekday_display }} {{ slot.start_time|time:'H:i' }}">
+                </td>
+                <td>{{ slot.get_weekday_display }}</td>
+                <td><strong>{{ slot.start_time|time:"H:i" }}</strong></td>
+                <td>
+                  <select name="tipo_{{ slot.pk }}" aria-label="Tipo de serviço">
+                    {% for tipo in tipos %}
+                      <option value="{{ tipo.pk }}"
+                        {% if tipo.pk == slot.service_type_id %}selected{% endif %}>
+                        {{ tipo.name }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td>
+                  <select name="local_{{ slot.pk }}" aria-label="Local">
+                    <option value="" {% if not slot.location_id %}selected{% endif %}>Online</option>
+                    {% for local in locais %}
+                      <option value="{{ local.pk }}"
+                        {% if local.pk == slot.location_id %}selected{% endif %}>
+                        {{ local.name }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td>
+                  <input type="number" name="lotacao_{{ slot.pk }}" min="1" step="1"
+                         class="lotacao"
+                         value="{{ slot.capacity|default:slot.service_type.default_capacity }}"
+                         aria-label="Lotação">
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% comment %}
+        Desmarcada por defeito de propósito. Gerar é um gesto inofensivo — cria
+        o que falta e salta o resto. Tocar em aulas que já existem (e que podem
+        já ter gente inscrita) tem de ser uma escolha deliberada.
+      {% endcomment %}
+      <p style="margin-top:1rem">
+        <label>
+          <input type="checkbox" name="atualizar" value="sim">
+          <strong>Atualizar as aulas que já existirem</strong>
+        </label><br>
+        <span class="help">
+          Aplica o tipo, o local e a lotação escolhidos às aulas dessa semana que
+          já tenham sido geradas. <strong>As inscrições são mantidas</strong> —
+          nada é apagado. Recusa baixar a lotação abaixo dos já inscritos, e
+          recusa mudar o tipo de uma aula que já tenha gente (isso mudaria os
+          créditos que a pagam; para esses casos, cancela a aula e gera de novo).
+        </span>
+      </p>
     {% else %}
       <p>Não há encaixes ativos no programa semanal.</p>
     {% endif %}

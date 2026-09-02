@@ -1,4 +1,5 @@
 {% extends "admin/base.html" %}
+{% load static %}
 
 {% comment %}
 Cópia do base_site.html do Django 5.1 com UMA adição (bloco extrahead):
@@ -18,6 +19,24 @@ do breadcrumb, devolve o Sérgio à lista EXATAMENTE como a deixou
 {% endblock %}
 
 {% block nav-global %}{% endblock %}
+
+{% comment %}
+Correções de responsividade do painel, em todas as páginas do admin.
+
+Carregado aqui (e não por Media de cada ModelAdmin) porque as correções são
+do próprio admin — a barra de botões, as listas, os alvos de toque — e não
+de um ecrã em particular.
+
+Vai no bloco `responsive` e DEPOIS do block.super de propósito: é o último
+sítio do <head> onde o Django carrega folhas de estilo (a responsive.css é
+carregada aí). Posto no extrastyle, a folha ficava ANTES da responsive.css e
+perdia todos os empates de especificidade — obrigando a inflacionar cada
+seletor para ganhar. Assim, basta escrever as regras normalmente.
+{% endcomment %}
+{% block responsive %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/admin-extra.css' %}">
+{% endblock %}
 
 {% block extrahead %}
 {{ block.super }}

@@ -5,9 +5,6 @@
 
 ## Pacotes — à espera de reunião com o Sérgio
 
-1. **Preços visíveis nos cartões?** O campo existe e aparece se preenchido.
-   Preço à vista filtra curiosos; preço só na conversa dá margem de negociação.
-   Decisão comercial do Sérgio.
 2. **Conteúdo real dos pacotes** — nomes, nº de sessões, preços E **tipo de
    crédito** (SG/PT/Hybrid) finais. Os atuais são provisórios: "Hybrid" tem 8
    sessões por palpite e o "Pack Experimenta" é fictício (serviu para testes).
@@ -27,6 +24,22 @@
    Complemento: pôr toda a informação relevante nos cartões do site, para o
    WhatsApp servir só para fechar a venda.
 
+## A confirmar com o Sérgio (construído com o padrão do setor entretanto)
+
+Decisão de ago 2026: não esperar por ele para avançar. Construímos com o que a
+maioria dos estúdios faz e deixamos cada uma fácil de inverter no admin. Ele
+confirma na demonstração.
+
+- **Lista de espera** — quando abre vaga, o próximo da fila entra
+  automaticamente e gasta 1 crédito (padrão do setor, e o que melhor aproveita
+  a vaga). A alternativa é reservar-lhe a vaga X horas à espera de
+  confirmação, o que exige avisos que a app não sabe mandar. Ao entrar na
+  fila, o aluno lê "se abrir vaga, ficas inscrito e gastas 1 sessão".
+- **Faltar sem avisar perde o crédito?** Assumido que sim — é o que faz as
+  pessoas cancelarem a tempo e libertarem a vaga, e é o comportamento atual do
+  código (marcar falta não devolve nada).
+- **Créditos expiram?** Assumido que não, como está hoje.
+
 ## Outros pendentes
 
 - **Trocar `SERGIO_WHATSAPP`** em `config/settings.py` pelo número real do
@@ -44,6 +57,47 @@
 
 ## Decisões fechadas (não fazer)
 
+- **O programa semanal fica em DUAS páginas** (set 2026). Chegou a equacionar-se
+  fundir tudo numa só — editar na lista e gerar dali — por a segunda página
+  repetir a tabela da primeira. Decidiu-se manter separado, porque as duas
+  fazem coisas diferentes e fundi-las apagava essa diferença:
+  - **Programa semanal (a lista)** é o *preset*. O que se muda aqui vale para
+    **todas as semanas** geradas daqui para a frente.
+  - **Gerar aulas da semana** são os ajustes **daquela semana**. O preset não
+    é tocado; na semana seguinte volta tudo aos valores da lista.
+
+  A exceção pontual (chuva, uma aula que muda de sítio só naquele dia) faz-se
+  na lista de **Sessões**, que é editável em linha.
+- **O gerador da semana NÃO apaga aulas** (ago 2026). Chegou a ser equacionado
+  um "gerar por cima" que apagasse a aula existente e criasse outra no lugar.
+  Apagar uma `Session` leva as marcações atrás em cascata e devolve os
+  créditos a toda a gente — desinscrevia os alunos **em silêncio**, porque não
+  há canal de avisos. Seria também reintroduzir a armadilha que levou a tornar
+  o cancelamento individual e com confirmação. Em vez disso, a página tem uma
+  opção de **atualizar** as aulas existentes, que mantém as inscrições. Para
+  destruir uma aula existe o botão "Cancelar esta aula", que devolve os
+  créditos como deve ser.
+- **Duplicados: compara-se só o instante** (ago 2026, "opção A"). Duas aulas
+  diferentes no mesmo instante passam a ser impossíveis de gerar — a segunda é
+  tratada como já existente. Foi escolha consciente, por simplicidade. Se um
+  dia o Sérgio precisar de duas aulas à mesma hora (ex.: um PT no estúdio e
+  uma aula de grupo no parque às 19:00), a solução é a `Session` guardar de
+  que encaixe nasceu (um campo novo e uma migração).
+
+- **Preços NÃO aparecem no site** (ago 2026) — quem quiser comprar é
+  encaminhado para o WhatsApp, onde o Sérgio faz a venda de forma orgânica e
+  com margem para negociar. O campo `Pack.price` fica no admin para uso
+  interno dele, mas o template `packages.html` nunca o mostra. Há um teste
+  que o garante (`PrecosEscondidosTests`).
+- **Avisos ao aluno = na app + WhatsApp manual** (ago 2026) — nada de email,
+  SMS ou push. Quando uma aula é cancelada, a marcação fica assinalada em "As
+  minhas marcações" e o admin dá ao Sérgio um botão que abre o WhatsApp já com
+  a lista dos alunos afetados. Sem custos por mensagem e encaixa no que ele já
+  faz todos os dias.
+- **Admin sem tema de terceiros, mas refinado** (ago 2026) — mantém-se a
+  decisão de não instalar pacotes de tema (django-unfold e afins). O admin vai
+  ser modernizado com CSS nosso, mantendo a distinção visual face ao site: o
+  site é o cartaz escuro da marca, o admin é uma ferramenta de trabalho clara.
 - **Sem lembrete automático de aniversários** — fica só o filtro manual
   "Faz anos hoje" no admin.
 - **Sem pagamentos online** — a compra é pelo WhatsApp e o Sérgio soma os

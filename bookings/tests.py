@@ -9,7 +9,7 @@ from datetime import time
 
 from accounts.models import CreditType
 from .forms import PhoneLoginForm, SignUpForm, normalizar_telemovel
-from .models import Booking, Location, ServiceType, Session, WeeklyProgramSlot
+from .models import Booking, Location, Pack, ServiceType, Session, WeeklyProgramSlot
 
 
 class ScheduleNavLimitsTests(TestCase):
@@ -652,3 +652,285 @@ class CancelBookingTests(TestCase):
 
         self.student.refresh_from_db()
         self.assertEqual(self.student.sessoes_sg, 1)
+
+
+class AulasPassadasTests(TestCase):
+    """
+    Uma aula que já decorreu não pode oferecer o botão "Reservar".
+
+    O servidor já recusava a reserva; o que faltava era o aluno perceber isso
+    antes de clicar. Ver a ordem das condições no schedule.html: "já decorreu"
+    tem de ser testado antes de "reservado".
+    """
+
+    def setUp(self):
+        self.service = ServiceType.objects.create(name="Aula de Grupo", default_capacity=12)
+        self.student = User.objects.create_user(
+            username="912345678", password="segredo1", sessoes_sg=5
+        )
+        self.client_http = Client()
+        self.client_http.force_login(self.student)
+        agora = timezone.now()
+        # Ambas HOJE: é o caso real — o horário de hoje mistura aulas que já
+        # aconteceram de manhã com as que ainda faltam à tarde.
+        self.passada = Session.objects.create(
+            service_type=self.service, start=agora - timedelta(hours=3),
+            duration_minutes=60, capacity=12,
+        )
+        self.futura = Session.objects.create(
+            service_type=self.service, start=agora + timedelta(hours=3),
+            duration_minutes=60, capacity=12,
+        )
+
+    def _html(self):
+        hoje = timezone.localdate().strftime("%Y-%m-%d")
+        return self.client_http.get(reverse("schedule"), {"date": hoje}).content.decode()
+
+    def test_aula_passada_mostra_ja_decorreu(self):
+        html = self._html()
+        self.assertIn("Já decorreu", html)
+        self.assertIn("btn-passada", html)
+
+    def test_aula_passada_nao_tem_formulario_de_reserva(self):
+        html = self._html()
+        # A futura ainda tem formulário; só deve existir um no dia inteiro.
+        self.assertEqual(html.count('class="inline-form book-form"'), 1)
+        self.assertNotIn(reverse("book", args=[self.passada.pk]), html)
+        self.assertIn(reverse("book", args=[self.futura.pk]), html)
+
+    def test_aula_passada_reservada_nao_diz_reservado(self):
+        """A ordem das condições: passada vence 'reservado'."""
+        Booking.objects.create(
+            session=self.passada, client=self.student, status=Booking.BOOKED
+        )
+        html = self._html()
+        self.assertIn("Já decorreu", html)
+        # Procurar só a palavra "Reservado" apanharia também o JS lá em baixo,
+        # que constrói esse estado ao reservar sem recarregar. O que o template
+        # escreve é o atributo class — é isso que não pode aparecer.
+        self.assertNotIn('class="btn-reservado"', html)
+
+
+class MetaTagsTests(TestCase):
+    """
+    Etiquetas de partilha e favicon. Existem por causa do WhatsApp: é de lá
+    que vem todo o tráfego, e sem elas o link aparece sem imagem nem título.
+    """
+
+    def test_open_graph_e_favicon_na_pagina_inicial(self):
+        html = self.client.get(reverse("home")).content.decode()
+        self.assertIn('property="og:title"', html)
+        self.assertIn('property="og:image"', html)
+        self.assertIn('name="theme-color"', html)
+        self.assertIn("favicon.png", html)
+
+    def test_og_image_e_um_endereco_absoluto(self):
+        """O WhatsApp vai buscar a imagem a partir dos servidores dele."""
+        html = self.client.get(reverse("home")).content.decode()
+        self.assertIn('property="og:image" content="http://testserver/', html)
+
+    def test_paginas_de_login_tambem_tem_meta(self):
+        """O base_auth.html é um template à parte e é fácil esquecê-lo."""
+        html = self.client.get(reverse("login")).content.decode()
+        self.assertIn('property="og:title"', html)
+        self.assertIn("favicon.png", html)
+
+
+class PrecosEscondidosTests(TestCase):
+    """
+    Decisão do Sérgio (ago 2026): os preços não aparecem no site. Quem quer
+    comprar é encaminhado para o WhatsApp, onde ele negoceia. O campo continua
+    no admin para uso interno.
+    """
+
+    def test_preco_nao_aparece_na_pagina_de_pacotes(self):
+        Pack.objects.create(
+            name="Pack 12 Sessões", number_of_sessions=12, price="120.00", active=True
+        )
+        student = User.objects.create_user(username="912345678", password="segredo1")
+        self.client.force_login(student)
+
+        html = self.client.get(reverse("packages")).content.decode()
+        self.assertIn("Pack 12 Sessões", html)
+        self.assertNotIn("120", html)
+        self.assertNotIn("pack-price", html)
+        self.assertIn("Falar no WhatsApp", html)
+
+
+class AutofillRegistoTests(TestCase):
+    """
+    O SignUpForm tem de herdar o Meta do UserCreationForm, senão o campo do
+    telemóvel perde o autocomplete e o gestor de passwords do telemóvel não
+    guarda o número no registo.
+    """
+
+    def test_username_tem_autocomplete(self):
+        html = SignUpForm().as_p()
+        self.assertIn('autocomplete="username"', html)
+
+    def test_nome_e_data_tem_autocomplete(self):
+        html = SignUpForm().as_p()
+        self.assertIn('autocomplete="given-name"', html)
+        self.assertIn('autocomplete="family-name"', html)
+        self.assertIn('autocomplete="bday"', html)
+
+    def test_registo_continua_a_funcionar(self):
+        """A mudança do Meta não pode partir a criação de contas."""
+        resposta = self.client.post(reverse("signup"), {
+            "username": "913000009", "first_name": "Ana", "last_name": "Teste",
+            "birth_date": "1990-05-04",
+            "password1": "segredo123", "password2": "segredo123",
+        })
+        self.assertRedirects(resposta, reverse("schedule"))
+        self.assertTrue(User.objects.filter(username="913000009").exists())
+
+
+class GerarSemanaAjustadaTests(TestCase):
+    """
+    A página "Gerar aulas da semana" permite ajustar tipo, local e lotação
+    ANTES de gerar. Os ajustes valem só para as aulas criadas — o programa
+    semanal (o molde) não é tocado.
+    """
+
+    def setUp(self):
+        admin_user = User.objects.create_superuser(
+            username="admin-teste", password="segredo1"
+        )
+        self.client_http = Client()
+        self.client_http.force_login(admin_user)
+
+        self.grupo = ServiceType.objects.create(
+            name="Aula de Grupo", default_capacity=12, credit_type=CreditType.SMALL_GROUP
+        )
+        self.pt = ServiceType.objects.create(
+            name="PT Individual", default_capacity=1, credit_type=CreditType.PT
+        )
+        self.estudio = Location.objects.create(name="Estudio", kind=Location.INDOOR)
+        self.parque = Location.objects.create(name="Parque", kind=Location.OUTDOOR)
+
+        self.slot = WeeklyProgramSlot.objects.create(
+            weekday=0, start_time=time(8, 0),
+            service_type=self.grupo, location=self.estudio,
+        )
+        self.url = "/admin/bookings/weeklyprogramslot/gerar-semana/"
+        self.segunda = "2026-08-03"  # é uma Segunda
+
+    def _gerar(self, ajustes=None, atualizar=False):
+        dados = {"segunda": self.segunda, "slots": [self.slot.pk]}
+        dados.update(ajustes or {})
+        if atualizar:
+            dados["atualizar"] = "sim"
+        return self.client_http.post(self.url, dados)
+
+    def _inscrever(self, sessao, quantos):
+        for i in range(quantos):
+            aluno = User.objects.create_user(
+                username=f"91900000{i}", password="x", sessoes_sg=5, sessoes_pt=5
+            )
+            Booking.objects.create(
+                session=sessao, client=aluno, status=Booking.BOOKED
+            )
+
+    # --- ajustes na criação ---------------------------------------------
+
+    def test_gera_com_os_valores_ajustados(self):
+        self._gerar({
+            f"tipo_{self.slot.pk}": self.pt.pk,
+            f"local_{self.slot.pk}": self.parque.pk,
+            f"lotacao_{self.slot.pk}": "4",
+        })
+        sessao = Session.objects.get()
+        self.assertEqual(sessao.service_type, self.pt)
+        self.assertEqual(sessao.location, self.parque)
+        self.assertEqual(sessao.capacity, 4)
+
+    def test_sem_ajustes_usa_os_valores_do_encaixe(self):
+        self._gerar()
+        sessao = Session.objects.get()
+        self.assertEqual(sessao.service_type, self.grupo)
+        self.assertEqual(sessao.location, self.estudio)
+        self.assertEqual(sessao.capacity, 12)  # o default_capacity do tipo
+
+    def test_local_vazio_gera_aula_online(self):
+        self._gerar({f"local_{self.slot.pk}": ""})
+        self.assertIsNone(Session.objects.get().location)
+
+    def test_o_programa_semanal_nao_e_alterado(self):
+        """O molde tem de ficar exatamente como estava."""
+        self._gerar({
+            f"tipo_{self.slot.pk}": self.pt.pk,
+            f"local_{self.slot.pk}": self.parque.pk,
+            f"lotacao_{self.slot.pk}": "4",
+        })
+        self.slot.refresh_from_db()
+        self.assertEqual(self.slot.service_type, self.grupo)
+        self.assertEqual(self.slot.location, self.estudio)
+        self.assertIsNone(self.slot.capacity)
+
+    def test_mudar_o_tipo_nao_cria_uma_segunda_aula_a_mesma_hora(self):
+        """
+        A razão de ser da opção A: a verificação compara só o instante. Antes
+        comparava também o tipo, e mudar o tipo gerava uma aula duplicada.
+        """
+        self._gerar()
+        self._gerar({f"tipo_{self.slot.pk}": self.pt.pk})
+        self.assertEqual(Session.objects.count(), 1)
+
+    # --- atualizar as que já existem -------------------------------------
+
+    def test_sem_atualizar_a_aula_existente_fica_como_estava(self):
+        self._gerar()
+        self._gerar({f"local_{self.slot.pk}": self.parque.pk})  # sem atualizar
+        self.assertEqual(Session.objects.get().location, self.estudio)
+
+    def test_com_atualizar_aplica_os_ajustes_e_mantem_inscricoes(self):
+        self._gerar()
+        sessao = Session.objects.get()
+        self._inscrever(sessao, 3)
+
+        self._gerar(
+            {f"local_{self.slot.pk}": self.parque.pk,
+             f"lotacao_{self.slot.pk}": "20"},
+            atualizar=True,
+        )
+
+        sessao.refresh_from_db()
+        self.assertEqual(sessao.location, self.parque)
+        self.assertEqual(sessao.capacity, 20)
+        # O essencial: ninguém foi desinscrito.
+        self.assertEqual(sessao.spots_taken, 3)
+        self.assertEqual(Session.objects.count(), 1)
+
+    def test_recusa_baixar_a_lotacao_abaixo_dos_inscritos(self):
+        self._gerar()
+        sessao = Session.objects.get()
+        self._inscrever(sessao, 5)
+
+        self._gerar({f"lotacao_{self.slot.pk}": "2"}, atualizar=True)
+
+        sessao.refresh_from_db()
+        self.assertEqual(sessao.capacity, 12)  # ficou como estava
+        self.assertEqual(sessao.spots_taken, 5)
+
+    def test_recusa_mudar_o_tipo_de_uma_aula_com_inscritos(self):
+        """Mudar o tipo mudava o balde de créditos que paga a aula."""
+        self._gerar()
+        sessao = Session.objects.get()
+        self._inscrever(sessao, 1)
+
+        self._gerar({f"tipo_{self.slot.pk}": self.pt.pk}, atualizar=True)
+
+        sessao.refresh_from_db()
+        self.assertEqual(sessao.service_type, self.grupo)
+
+    def test_muda_o_tipo_se_ainda_nao_houver_inscritos(self):
+        self._gerar()
+        self._gerar({f"tipo_{self.slot.pk}": self.pt.pk}, atualizar=True)
+        self.assertEqual(Session.objects.get().service_type, self.pt)
+
+    def test_atualizar_nunca_apaga_a_aula(self):
+        """Nenhum caminho desta página pode apagar uma aula."""
+        self._gerar()
+        pk_original = Session.objects.get().pk
+        self._gerar({f"local_{self.slot.pk}": self.parque.pk}, atualizar=True)
+        self.assertEqual(Session.objects.get().pk, pk_original)

@@ -1,0 +1,34 @@
+{% load static %}
+{% comment %}
+  Cabeçalho partilhado pelo base.html e pelo base_auth.html.
+
+  As etiquetas Open Graph existem por uma razão concreta deste negócio: todo
+  o tráfego nasce de um link que o Sérgio cola no WhatsApp. Sem elas o link
+  aparece como texto azul sem imagem nem título; com elas aparece um cartão
+  com o logótipo e uma frase.
+
+  O og:image tem de ser um endereço ABSOLUTO (o WhatsApp vai buscá-lo a
+  partir dos servidores dele, não do browser do aluno). Construímo-lo a
+  partir do pedido para funcionar em qualquer domínio — desenvolvimento,
+  túnel de demonstração ou produção — sem ninguém ter de se lembrar de o
+  trocar.
+{% endcomment %}
+<meta name="description" content="Marca as tuas aulas e sessões do RESTART NOW num só sítio.">
+{% comment %} Pinta a barra do browser no telemóvel de preto: sem isto fica branca e corta o tema escuro ao meio. {% endcomment %}
+<meta name="theme-color" content="#0F0F0F">
+<link rel="icon" href="{% static 'img/brand/favicon.png' %}" sizes="any">
+<link rel="apple-touch-icon" href="{% static 'img/brand/favicon.png' %}">
+
+<meta property="og:site_name" content="RESTART NOW">
+{% comment %}
+  Título fixo de propósito: o que é partilhado é sempre o site, não a página
+  concreta (as páginas internas exigem login, por isso ninguém as abre a
+  partir de um link partilhado). Um {% templatetag openblock %} block {% templatetag closeblock %} aqui não funcionaria —
+  os blocos de um {% templatetag openblock %} include {% templatetag closeblock %} não podem ser substituídos pelos templates filhos.
+{% endcomment %}
+<meta property="og:title" content="RESTART NOW">
+<meta property="og:description" content="Marca as tuas aulas e sessões num só sítio.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
+<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'img/brand/class-outdoor.jpg' %}">
+<meta name="twitter:card" content="summary_large_image">

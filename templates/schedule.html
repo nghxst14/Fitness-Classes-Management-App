@@ -26,22 +26,36 @@
   {% if sessions %}
     <ul class="card-list">
       {% for s in sessions %}
-        <li class="class-card"
+        <li class="class-card{% if s.is_past %} class-card-passada{% endif %}"
             {% if s.card_image %}style="background-image:url('{% static s.card_image %}')"{% endif %}>
           <div class="class-card-body">
             <span class="type-badge type-{{ s.credit_type }}">{{ s.service_type.get_credit_type_display }}</span>
             <div class="class-card-title">{{ s.title|default:s.service_type.name }}</div>
+            {% comment %}
+              Hora, duração e local numa linha só. Eram duas, e num horário a
+              hora é o que se procura primeiro — por isso vem à frente.
+            {% endcomment %}
             <div class="class-card-meta">
-              {% if s.location %}{{ s.location.name }}{% else %}Online{% endif %}
+              <b class="class-card-hora">{{ s.start|time:"H:i" }}</b>
+              · {{ s.duration_minutes }}'
+              · {% if s.location %}{{ s.location.name }}{% else %}Online{% endif %}
             </div>
-            <div class="class-card-meta">{{ s.start|time:"H:i" }} · {{ s.duration_minutes }}'</div>
 
             <div class="class-card-row">
               <span class="capacity">
                 Lotação <b>{{ s.spots_taken }}</b><span class="sep">/</span>{{ s.capacity }}
               </span>
 
-              {% if s.id in my_session_ids %}
+              {% comment %}
+                A ordem importa: "já decorreu" tem de ser testado ANTES de
+                "reservado", senão uma aula passada a que o aluno foi continua
+                a mostrar o estado de reserva, como se ainda estivesse para
+                acontecer. O servidor já recusava reservas de aulas passadas —
+                o que faltava era o aluno não ver um botão que não funciona.
+              {% endcomment %}
+              {% if s.is_past %}
+                <span class="btn-passada">Já decorreu</span>
+              {% elif s.id in my_session_ids %}
                 <span class="btn-reservado"><span class="ck">&#10003;</span> Reservado</span>
               {% elif s.is_full %}
                 <button class="btn btn-small" disabled>Esgotada</button>
@@ -90,11 +104,18 @@
               var b = cap && cap.querySelector(".capacity b");
               if (b) b.textContent = data.inscritos;
             }
+            // O servidor manda uma frase com o saldo que ficou ("Ficaste com
+            // 4 sessões de Small Group"). Antes era deitada fora: o aluno
+            // reservava e não recebia confirmação nenhuma.
+            if (data.mensagem) mostrarAviso(data.mensagem, "success");
           } else if (data.redirect) {
             window.location = data.redirect;   // sem saldo -> pacotes
           } else {
-            if (data.mensagem) alert(data.mensagem);
-            window.location.reload();           // esgotada/passada -> refletir estado
+            // Esgotou ou já passou entre carregar a página e clicar. Mostra o
+            // aviso na própria página e volta a carregar passado um instante,
+            // para o aluno ler o motivo antes de o ecrã mudar.
+            if (data.mensagem) mostrarAviso(data.mensagem, "error");
+            setTimeout(function () { window.location.reload(); }, 2500);
           }
         })
         .catch(function () { window.location.reload(); });
@@ -106,6 +127,22 @@
       var el = document.querySelector(".saldo-" + tipo + " .saldo-num");
       if (el) el.textContent = saldos[tipo];
     });
+  }
+
+  // Usa a mesma lista e as mesmas classes das mensagens do Django, para o
+  // aviso do JS ser indistinguível de um aviso vindo do servidor.
+  function mostrarAviso(texto, tipo) {
+    var lista = document.getElementById("avisos");
+    if (!lista) return;
+    var li = document.createElement("li");
+    li.className = "msg msg-" + tipo;
+    li.textContent = texto;          // textContent, nunca innerHTML
+    lista.appendChild(li);
+    li.scrollIntoView({ block: "nearest" });
+    setTimeout(function () {
+      li.classList.add("msg-a-sair");
+      setTimeout(function () { li.remove(); }, 400);
+    }, 4000);
   }
 </script>
 {% endblock %}

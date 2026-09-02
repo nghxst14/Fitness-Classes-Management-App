@@ -4,13 +4,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Gestão de Treinos{% endblock %}</title>
+  <title>{% block title %}RESTART NOW{% endblock %}</title>
+  {% include "partials/meta.html" %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
 <body>
+  <a class="skip-link" href="#conteudo">Saltar para o conteúdo</a>
   <header class="topbar">
     <a class="brand" href="{% url 'home' %}">
       <img src="{% static 'img/brand/logo-restart-now.png' %}" alt="RESTART NOW"
@@ -56,14 +58,18 @@
     </div>
   {% endif %}
 
-  <main class="container">
-    {% if messages %}
-      <ul class="messages">
-        {% for message in messages %}
-          <li class="msg msg-{{ message.tags }}">{{ message }}</li>
-        {% endfor %}
-      </ul>
-    {% endif %}
+  <main class="container" id="conteudo">
+    {% comment %}
+      A lista é sempre desenhada, mesmo vazia: o JS do horário acrescenta-lhe
+      avisos sem ter de a criar. O aria-live faz com que um leitor de ecrã
+      anuncie o que aparecer aqui — tanto as mensagens do Django como as que
+      o JS acrescenta depois de reservar.
+    {% endcomment %}
+    <ul class="messages" id="avisos" aria-live="polite">
+      {% for message in messages %}
+        <li class="msg msg-{{ message.tags }}">{{ message }}</li>
+      {% endfor %}
+    </ul>
 
     {% block content %}{% endblock %}
   </main>

@@ -293,31 +293,54 @@ class WeeklyProgramSlot(models.Model):
     def __str__(self):
         return f"{self.get_weekday_display()} {self.start_time:%H:%M} — {self.service_type.name}"
 
-    def criar_sessao(self, data):
-        """
-        Cria a Session desta linha na `data` dada (um datetime.date), em hora
-        de Lisboa. Devolve (sessao, criada). Não cria se já existir uma sessão
-        no mesmo instante e tipo — assim clicar "gerar" duas vezes não duplica.
-        """
+    def instante(self, data):
+        """O início desta aula na `data` dada, em hora de Lisboa (DST-safe)."""
         from datetime import datetime
         from zoneinfo import ZoneInfo
 
         from django.conf import settings
 
-        inicio = datetime.combine(data, self.start_time).replace(
+        return datetime.combine(data, self.start_time).replace(
             tzinfo=ZoneInfo(settings.TIME_ZONE)
         )
-        ja_existe = Session.objects.filter(
-            start=inicio, service_type=self.service_type
-        ).exists()
-        if ja_existe:
-            return None, False
+
+    def valores_por_defeito(self):
+        """
+        O que este encaixe usa quando nada é ajustado. Serve para pré-preencher
+        a página "Gerar aulas da semana", onde o Sérgio pode mudar o tipo, o
+        local e a lotação só para aquela semana — sem alterar o encaixe.
+        """
+        return {
+            "service_type": self.service_type,
+            "location": self.location,
+            "capacity": self.capacity or self.service_type.default_capacity,
+        }
+
+    def criar_sessao(self, data, **ajustes):
+        """
+        Cria a Session desta linha na `data` dada (um datetime.date).
+        Devolve (sessao, criada).
+
+        Os `ajustes` (service_type, location, capacity) substituem os valores
+        por defeito só nesta criação — o encaixe fica como está.
+
+        Não cria se já existir uma aula NO MESMO INSTANTE, seja ela qual for.
+        Antes comparava-se também o tipo de serviço, mas a partir do momento em
+        que o tipo pode ser ajustado antes de gerar isso deixou de servir:
+        mudar o tipo fazia o gerador não reconhecer a aula que já lá estava e
+        criar uma segunda à mesma hora. O preço desta escolha é não se poderem
+        ter duas aulas diferentes no mesmo instante — quando isso for preciso,
+        a solução é a aula guardar de que encaixe nasceu.
+        """
+        inicio = self.instante(data)
+        existente = Session.objects.filter(start=inicio).first()
+        if existente:
+            return existente, False
+        valores = {**self.valores_por_defeito(), **ajustes}
         sessao = Session.objects.create(
-            service_type=self.service_type,
-            location=self.location,
             start=inicio,
             duration_minutes=self.duration_minutes,
-            capacity=self.capacity or self.service_type.default_capacity,
+            **valores,
         )
         return sessao, True
 

@@ -33,14 +33,26 @@ class SignUpForm(UserCreationForm):
     campo `username` do Django é apresentado como "Telemóvel".
     """
 
-    first_name = forms.CharField(label="Nome", max_length=150)
-    last_name = forms.CharField(label="Apelido", max_length=150, required=False)
+    first_name = forms.CharField(
+        label="Nome", max_length=150,
+        widget=forms.TextInput(attrs={"autocomplete": "given-name"}),
+    )
+    last_name = forms.CharField(
+        label="Apelido", max_length=150, required=False,
+        widget=forms.TextInput(attrs={"autocomplete": "family-name"}),
+    )
     birth_date = forms.DateField(
         label="Data de nascimento",
-        widget=forms.DateInput(attrs={"type": "date"}),
+        widget=forms.DateInput(attrs={"type": "date", "autocomplete": "bday"}),
     )
 
-    class Meta:
+    class Meta(UserCreationForm.Meta):
+        # Herdar do Meta do UserCreationForm traz o
+        # field_classes = {"username": UsernameField}, e com ele o
+        # autocomplete="username" e o autocapitalize="none". Sem esta herança
+        # o campo era um CharField simples: o gestor de passwords do telemóvel
+        # não guardava o número no registo e, no login seguinte, não tinha
+        # nada para preencher — o aluno escrevia tudo à mão de cada vez.
         model = User
         fields = ("username", "first_name", "last_name", "birth_date")
 

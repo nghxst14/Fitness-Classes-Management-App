@@ -21,8 +21,13 @@
           {% if item.pack.description %}
             <p class="pack-desc">{{ item.pack.description }}</p>
           {% endif %}
+          {% comment %}
+            Os preços NÃO aparecem no site (decisão do Sérgio, ago 2026): quem
+            quiser comprar é encaminhado para o WhatsApp, onde ele faz a venda
+            de forma orgânica e com margem para negociar. O campo `price`
+            continua no admin para uso interno dele — só não é mostrado aqui.
+          {% endcomment %}
           <div class="pack-foot">
-            {% if item.pack.price %}<span class="pack-price">{{ item.pack.price }} €</span>{% endif %}
             <a class="btn btn-small" href="{{ item.wa_url }}" target="_blank" rel="noopener">
               Falar no WhatsApp
             </a>
