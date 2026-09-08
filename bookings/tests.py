@@ -1072,3 +1072,32 @@ class MovimentoCreditoTests(TestCase):
         User.objects.filter(pk=self.aluno.pk).update(sessoes_sg=0)
         self.client_http.post(reverse("book", args=[self.sessao.pk]))
         self.assertEqual(MovimentoCredito.objects.count(), 0)
+
+
+class PaginasDeErroTests(TestCase):
+    """
+    As páginas 404 e 500. O Django usa-as automaticamente quando DEBUG=False
+    (que é o caso nos testes) — basta estarem na raiz de templates/.
+    """
+
+    def test_404_mostra_a_nossa_pagina(self):
+        r = self.client.get("/isto-nao-existe/")
+        self.assertEqual(r.status_code, 404)
+        self.assertContains(r, "Esta página não existe", status_code=404)
+        # E dá caminho de volta, em vez de deixar o aluno num beco.
+        self.assertContains(r, reverse("schedule"), status_code=404)
+
+    def test_500_nao_depende_de_nada(self):
+        """
+        A 500 aparece quando algo JÁ correu mal — pode ser a base de dados, os
+        ficheiros estáticos ou o próprio base.html. Por isso é renderizada sem
+        contexto nenhum, e tem de aguentar isso sem rebentar.
+        """
+        from django.template.loader import get_template
+
+        html = get_template("500.html").render()  # sem contexto, como o Django faz
+        self.assertIn("RESTART NOW", html)
+        self.assertIn("correu mal", html)
+        # Autónoma: sem herança e sem ficheiros externos.
+        self.assertNotIn("{% extends", html)
+        self.assertNotIn("/static/", html)

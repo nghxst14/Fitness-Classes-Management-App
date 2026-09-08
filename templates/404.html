@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Página não encontrada — RESTART NOW{% endblock %}
+
+{% comment %}
+  O Django usa este template automaticamente quando DEBUG=False e um endereço
+  não existe. Não é preciso configurar nada — basta estar aqui, na raiz de
+  templates/.
+
+  Ao contrário do 500.html, este pode estender o base.html com segurança: o
+  Django renderiza-o COM o pedido, por isso a barra de topo e a faixa de
+  saldos funcionam normalmente.
+{% endcomment %}
+
+{% block content %}
+  <section class="erro-pagina">
+    <p class="erro-codigo">404</p>
+    <h1>Esta página não existe</h1>
+    <p class="muted">
+      O endereço pode estar mal escrito, ou a página pode ter mudado de sítio.
+    </p>
+    <p class="hero-actions">
+      <a class="btn" href="{% url 'schedule' %}">Ver o horário</a>
+      <a class="btn btn-outline" href="{% url 'home' %}">Ir para o início</a>
+    </p>
+  </section>
+{% endblock %}

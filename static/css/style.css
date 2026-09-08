@@ -517,6 +517,19 @@ h2 {
 .pack-desc { color: var(--muted); margin: 0.5rem 0 0; }
 .pack-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }
 
+/* Página 404 (a 500 é autónoma e traz o estilo dentro dela) */
+.erro-pagina { text-align: center; padding: 3rem 0 2rem; }
+.erro-codigo {
+  font-family: var(--font-display);
+  font-size: 4rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--dark-2);
+  margin: 0 0 0.5rem;
+}
+.erro-pagina h1 { margin: 0 0 0.5rem; }
+.erro-pagina .hero-actions { margin-top: 1.75rem; }
+
 /* Rodapé */
 .footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 2rem 1rem; border-top: 1px solid var(--line); }
 /* Aula que já decorreu: fica no ecrã (confirma ao aluno que existiu) mas

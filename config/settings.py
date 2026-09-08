@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 # Caminho base do projeto (a pasta que contém o manage.py)
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -155,6 +156,18 @@ LOGIN_URL = "login"
 # com o número real do Sérgio. O default é o número de TESTE do André.
 SERGIO_WHATSAPP = os.environ.get("SERGIO_WHATSAPP", "351939339857")
 
+# Em produção o número TEM de vir do ambiente. O valor por omissão é o número
+# de TESTE do André: se a variável for esquecida ou escrita com erro no
+# Railway, a app não falha — sobe alegremente e manda TODOS os alunos falar
+# com a pessoa errada, em silêncio. É o pior tipo de erro: não dá sinal
+# nenhum. Mais vale a app recusar arrancar.
+if not DEBUG and not os.environ.get("SERGIO_WHATSAPP"):
+    raise ImproperlyConfigured(
+        "Falta a variável de ambiente SERGIO_WHATSAPP com o número real do "
+        "Sérgio (indicativo + número, sem '+' nem espaços). Sem ela, os "
+        "botões dos pacotes mandariam os alunos para o número de teste."
+    )
+
 
 # --- Segurança em produção ---------------------------------------------------
 # Só quando DEBUG=False. O Railway serve tudo por HTTPS atrás de um proxy;
@@ -168,5 +181,45 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30  # 30 dias
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+
+# --- Registo de erros ---------------------------------------------------------
+# Sem isto, um erro 500 em produção mostra a página de erro ao aluno e não
+# deixa rasto nenhum: só ficarias a saber quando o Sérgio telefonasse, dias
+# depois. Escrever para a consola é de propósito — o Railway capta o que a app
+# escreve e mostra-o no separador "Logs", sem ser preciso instalar nada.
+#
+# Se um dia quiseres ser avisado (email/telemóvel) em vez de teres de ir lá
+# ver, o passo seguinte é ligar o Sentry, que tem um plano gratuito mais do
+# que suficiente para esta escala.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "simples": {
+            "format": "{levelname} {asctime} {name} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "consola": {
+            "class": "logging.StreamHandler",
+            "formatter": "simples",
+        },
+    },
+    "root": {"handlers": ["consola"], "level": "INFO"},
+    "loggers": {
+        # Os erros 500 passam por aqui. O propagate=False evita a linha
+        # duplicada (uma do logger, outra da raiz).
+        "django.request": {
+            "handlers": ["consola"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+        # Em desenvolvimento, o Django regista cada query em DEBUG: seria
+        # ruído a esconder o que interessa.
+        "django.db.backends": {"level": "WARNING"},
+    },
+}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

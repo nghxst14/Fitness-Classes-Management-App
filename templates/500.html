@@ -1,0 +1,66 @@
+{% comment %}
+  Página de erro do servidor (DEBUG=False). O Django usa-a automaticamente.
+
+  NÃO estende o base.html e NÃO usa {% templatetag openblock %} static {% templatetag closeblock %}, de propósito.
+
+  Esta página aparece quando alguma coisa já correu mal — pode ser a base de
+  dados, podem ser os ficheiros estáticos, pode ser um erro no próprio
+  base.html. Se ela dependesse dessas peças, arriscava-se a rebentar também, e
+  o aluno via a página cinzenta do Django em inglês. Por isso é autónoma: todo
+  o estilo vai aqui dentro e não depende de mais nada.
+
+  O Django também a renderiza SEM contexto (sem o pedido e sem os context
+  processors), portanto {{ user }} e as variáveis do site não existem aqui.
+{% endcomment %}<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0F0F0F">
+  <title>Erro — RESTART NOW</title>
+  <style>
+    :root { --preto: #0f0f0f; --cinza: #202020; --verde: #5dd62c; --branco: #f8f8f8; --esbatido: #9aa1a0; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--preto); color: var(--branco);
+      font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.5; padding: 2rem 1.25rem; text-align: center;
+    }
+    .caixa { max-width: 30rem; }
+    .marca {
+      font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+      font-size: 0.85rem; color: var(--verde); margin-bottom: 2rem;
+    }
+    .codigo {
+      font-size: 3.5rem; font-weight: 800; line-height: 1;
+      color: var(--cinza); margin: 0 0 0.5rem;
+      /* Um cinzento sobre o preto: presente, mas sem gritar. O que interessa
+         ao aluno é a frase a seguir, não o número. */
+    }
+    h1 { font-size: 1.5rem; margin: 0 0 0.75rem; }
+    p { color: var(--esbatido); margin: 0 0 1.75rem; }
+    a {
+      display: inline-block; background: var(--verde); color: #0c0c0c;
+      text-decoration: none; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.05em; font-size: 0.9rem;
+      padding: 0.8rem 1.4rem; border-radius: 10px; min-height: 44px;
+    }
+    a:hover { background: #6ee83a; }
+    a:focus-visible { outline: 2px solid var(--verde); outline-offset: 3px; }
+  </style>
+</head>
+<body>
+  <div class="caixa">
+    <p class="marca">RESTART NOW</p>
+    <p class="codigo">500</p>
+    <h1>Alguma coisa correu mal do nosso lado</h1>
+    <p>
+      Não foi culpa tua. Tenta outra vez daqui a bocado — se continuar assim,
+      fala com o teu treinador.
+    </p>
+    <a href="/">Voltar ao início</a>
+  </div>
+</body>
+</html>
