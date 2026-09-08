@@ -202,6 +202,125 @@ class Session(models.Model):
                 User.objects.filter(pk=booking.client_id).update(
                     **{campo: F(campo) + 1}
                 )
+                # Dentro da mesma transação: ou ficam os dois, ou nenhum.
+                MovimentoCredito.registar(
+                    client=booking.client_id,
+                    credit_type=self.credit_type,
+                    quantidade=1,
+                    motivo=MovimentoCredito.AULA_CANCELADA,
+                    session=self,
+                )
+
+
+class MovimentoCredito(models.Model):
+    """
+    O extrato dos créditos: uma linha por cada alteração de saldo.
+
+    Porquê: o saldo no `User` é um número que se sobrescreve, e um número não
+    tem memória. Quando um aluno pergunta "comprei 10, fui a 3, porque tenho
+    5?", sem isto não há resposta possível — nem o histórico do admin serve,
+    porque só regista que o campo mexeu (não de quanto para quanto) e não
+    apanha de todo as alterações automáticas, que usam `.update()` no ORM.
+
+    O saldo continua no `User` porque é rápido de ler (aparece no topo de
+    todas as páginas). Este livro vive ao lado como a verdade auditável: se
+    algum dia os dois discordarem, o livro é que manda — e a discordância é,
+    ela própria, o sinal de que alguma coisa correu mal.
+
+    **Nunca se apaga nem se edita.** No admin é só de leitura: um livro que se
+    pode corrigir deixa de servir para resolver discussões.
+    """
+
+    COMPRA = "compra"
+    RESERVA = "reserva"
+    CANCELAMENTO = "cancelamento"
+    AULA_CANCELADA = "aula_cancelada"
+    MARCACAO_APAGADA = "marcacao_apagada"
+    AJUSTE = "ajuste"
+    MOTIVOS = [
+        (COMPRA, "Créditos adicionados"),
+        (RESERVA, "Reserva de aula"),
+        (CANCELAMENTO, "O aluno cancelou"),
+        (AULA_CANCELADA, "A aula foi cancelada"),
+        (MARCACAO_APAGADA, "Marcação apagada"),
+        (AJUSTE, "Ajuste manual"),
+    ]
+
+    client = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="movimentos",
+        verbose_name="Aluno",
+    )
+    credit_type = models.CharField(
+        "Tipo de crédito", max_length=10, choices=CreditType.choices
+    )
+    quantidade = models.IntegerField(
+        "Quantidade",
+        help_text="Positivo = créditos acrescentados; negativo = gastos.",
+    )
+    motivo = models.CharField("Motivo", max_length=20, choices=MOTIVOS)
+    saldo_depois = models.PositiveIntegerField(
+        "Saldo depois",
+        help_text="O saldo desse tipo logo a seguir a este movimento.",
+    )
+    session = models.ForeignKey(
+        "Session",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="movimentos",
+        verbose_name="Aula",
+        help_text="A aula que originou o movimento, quando há uma.",
+    )
+    feito_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        verbose_name="Feito por",
+        help_text="Quem provocou o movimento. Vazio = automático.",
+    )
+    created_at = models.DateTimeField("Quando", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Movimento de créditos"
+        verbose_name_plural = "Movimentos de créditos"
+        ordering = ["-created_at", "-pk"]
+        indexes = [models.Index(fields=["client", "-created_at"])]
+
+    def __str__(self):
+        sinal = "+" if self.quantidade >= 0 else ""
+        return f"{self.client} {sinal}{self.quantidade} {self.get_credit_type_display()}"
+
+    @classmethod
+    def registar(cls, client, credit_type, quantidade, motivo,
+                 session=None, feito_por=None):
+        """
+        Escreve um movimento, lendo o saldo já atualizado da base de dados.
+
+        Chamar SEMPRE dentro da mesma transação que alterou o saldo, e DEPOIS
+        de o alterar: o `saldo_depois` é lido da base de dados (e não calculado
+        aqui) para o livro registar o que ficou mesmo lá, mesmo que outra coisa
+        tenha mexido no saldo em simultâneo.
+        """
+        User = get_user_model()
+        campo = User.campo_saldo(credit_type)
+        saldo = (
+            User.objects.filter(pk=client.pk if hasattr(client, "pk") else client)
+            .values_list(campo, flat=True)
+            .first()
+        )
+        return cls.objects.create(
+            client_id=client.pk if hasattr(client, "pk") else client,
+            credit_type=credit_type,
+            quantidade=quantidade,
+            motivo=motivo,
+            saldo_depois=saldo or 0,
+            session=session,
+            feito_por=feito_por,
+        )
 
 
 class Pack(models.Model):
@@ -447,4 +566,14 @@ def devolver_credito_ao_apagar_marcacao(sender, instance, **kwargs):
         campo = User.campo_saldo(instance.session.credit_type)
         User.objects.filter(pk=instance.client_id).update(
             **{campo: F(campo) + 1}
+        )
+        # A aula pode estar a ser apagada em cascata com esta marcação: nesse
+        # caso o SET_NULL do movimento trata do assunto e a linha do livro
+        # fica na mesma, sem a referência à aula. O movimento não se perde.
+        MovimentoCredito.registar(
+            client=instance.client_id,
+            credit_type=instance.session.credit_type,
+            quantidade=1,
+            motivo=MovimentoCredito.MARCACAO_APAGADA,
+            session=instance.session,
         )

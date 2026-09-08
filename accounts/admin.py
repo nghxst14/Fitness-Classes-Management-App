@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils import timezone
 
-from .models import User
+from .models import CreditType, User
 
 
 class BirthdayTodayFilter(admin.SimpleListFilter):
@@ -55,6 +55,47 @@ class UserAdmin(BaseUserAdmin):
         acoes = super().get_actions(request)
         acoes.pop("delete_selected", None)
         return acoes
+
+    def save_model(self, request, obj, form, change):
+        """
+        Regista no livro de movimentos os saldos que o Sérgio ajusta à mão.
+
+        É por aqui que entra o dinheiro: ele recebe o pagamento pelo WhatsApp
+        e soma os créditos na lista. Sem este registo, a compra — a origem de
+        tudo o resto — seria a única coisa sem rasto, e o "History" do admin
+        só diz que o campo mexeu, nunca de quanto para quanto.
+
+        Serve tanto a ficha como a edição direta na lista: o admin chama o
+        save_model nos dois casos, e envolve-os numa transação.
+        """
+        # Ler ANTES de gravar: depois já não há como saber o valor anterior.
+        campos = [User.campo_saldo(t) for t, _ in CreditType.choices]
+        anteriores = {}
+        if change:
+            anteriores = User.objects.filter(pk=obj.pk).values(*campos).first() or {}
+
+        super().save_model(request, obj, form, change)
+
+        if not change:
+            return
+        # Importado aqui e não no topo: o admin das contas não deve depender
+        # da app das marcações para carregar.
+        from bookings.models import MovimentoCredito
+
+        for tipo, _ in CreditType.choices:
+            campo = User.campo_saldo(tipo)
+            antes, depois = anteriores.get(campo), getattr(obj, campo)
+            if antes is None or antes == depois:
+                continue
+            MovimentoCredito.registar(
+                client=obj,
+                credit_type=tipo,
+                quantidade=depois - antes,
+                # Somar é quase sempre uma compra; tirar é uma correção.
+                motivo=(MovimentoCredito.COMPRA if depois > antes
+                        else MovimentoCredito.AJUSTE),
+                feito_por=request.user,
+            )
 
     fieldsets = (
         (None, {"fields": ("username", "password")}),

@@ -9,7 +9,10 @@ from datetime import time
 
 from accounts.models import CreditType
 from .forms import PhoneLoginForm, SignUpForm, normalizar_telemovel
-from .models import Booking, Location, Pack, ServiceType, Session, WeeklyProgramSlot
+from .models import (
+    Booking, Location, MovimentoCredito, Pack, ServiceType, Session,
+    WeeklyProgramSlot,
+)
 
 
 class ScheduleNavLimitsTests(TestCase):
@@ -934,3 +937,138 @@ class GerarSemanaAjustadaTests(TestCase):
         pk_original = Session.objects.get().pk
         self._gerar({f"local_{self.slot.pk}": self.parque.pk}, atualizar=True)
         self.assertEqual(Session.objects.get().pk, pk_original)
+
+
+class MovimentoCreditoTests(TestCase):
+    """
+    O extrato dos créditos. Tem de registar os CINCO caminhos que mexem em
+    saldos — se algum ficar de fora, o livro deixa de bater certo com o saldo
+    e perde a razão de existir.
+    """
+
+    def setUp(self):
+        self.servico = ServiceType.objects.create(
+            name="Aula de Grupo", default_capacity=12,
+            credit_type=CreditType.SMALL_GROUP,
+        )
+        self.sessao = Session.objects.create(
+            service_type=self.servico,
+            start=timezone.now() + timedelta(days=2),
+            duration_minutes=60, capacity=12,
+        )
+        self.aluno = User.objects.create_user(
+            username="912345678", password="segredo1", sessoes_sg=5
+        )
+        self.client_http = Client()
+        self.client_http.force_login(self.aluno)
+
+    def _ultimo(self):
+        return MovimentoCredito.objects.order_by("-pk").first()
+
+    # --- os cinco caminhos ----------------------------------------------
+
+    def test_reservar_regista_menos_um(self):
+        self.client_http.post(reverse("book", args=[self.sessao.pk]))
+        m = self._ultimo()
+        self.assertEqual(m.quantidade, -1)
+        self.assertEqual(m.motivo, MovimentoCredito.RESERVA)
+        self.assertEqual(m.credit_type, CreditType.SMALL_GROUP)
+        self.assertEqual(m.session, self.sessao)
+        self.assertEqual(m.client, self.aluno)
+
+    def test_aluno_cancelar_regista_mais_um(self):
+        self.client_http.post(reverse("book", args=[self.sessao.pk]))
+        marcacao = Booking.objects.get(session=self.sessao, client=self.aluno)
+        self.client_http.post(reverse("cancel_booking", args=[marcacao.pk]))
+        m = self._ultimo()
+        self.assertEqual(m.quantidade, 1)
+        self.assertEqual(m.motivo, MovimentoCredito.CANCELAMENTO)
+
+    def test_aula_cancelada_regista_o_reembolso(self):
+        self.client_http.post(reverse("book", args=[self.sessao.pk]))
+        self.sessao.is_cancelled = True
+        self.sessao.save()
+        m = self._ultimo()
+        self.assertEqual(m.quantidade, 1)
+        self.assertEqual(m.motivo, MovimentoCredito.AULA_CANCELADA)
+
+    def test_apagar_marcacao_regista_o_reembolso(self):
+        self.client_http.post(reverse("book", args=[self.sessao.pk]))
+        Booking.objects.get(session=self.sessao, client=self.aluno).delete()
+        m = self._ultimo()
+        self.assertEqual(m.quantidade, 1)
+        self.assertEqual(m.motivo, MovimentoCredito.MARCACAO_APAGADA)
+
+    def test_ajuste_no_admin_regista_a_compra(self):
+        """É por aqui que entra o dinheiro: não pode ficar sem rasto."""
+        sergio = User.objects.create_superuser(username="sergio", password="segredo1")
+        painel = Client()
+        painel.force_login(sergio)
+
+        painel.post(
+            reverse("admin:accounts_user_change", args=[self.aluno.pk]),
+            {
+                "username": self.aluno.username,
+                "first_name": "", "last_name": "", "birth_date": "",
+                "sessoes_sg": 15, "sessoes_pt": 0, "sessoes_hybrid": 0,
+                "is_active": "on",
+                "last_login_0": "", "last_login_1": "",
+                "date_joined_0": "2026-01-01", "date_joined_1": "10:00:00",
+            },
+        )
+        self.aluno.refresh_from_db()
+        self.assertEqual(self.aluno.sessoes_sg, 15)
+
+        m = self._ultimo()
+        self.assertEqual(m.quantidade, 10)          # de 5 para 15
+        self.assertEqual(m.motivo, MovimentoCredito.COMPRA)
+        self.assertEqual(m.feito_por, sergio)       # quem o fez fica registado
+
+    # --- o livro tem de bater certo com o saldo --------------------------
+
+    def test_o_saldo_depois_acompanha_o_saldo_real(self):
+        self.client_http.post(reverse("book", args=[self.sessao.pk]))
+        self.aluno.refresh_from_db()
+        self.assertEqual(self._ultimo().saldo_depois, self.aluno.sessoes_sg)
+
+    def test_a_soma_dos_movimentos_explica_o_saldo(self):
+        """
+        A propriedade que dá valor ao livro: saldo inicial + soma dos
+        movimentos = saldo atual. Se isto falhar, há um caminho que mexe em
+        créditos sem registar.
+        """
+        inicial = 5
+        outra = Session.objects.create(
+            service_type=self.servico,
+            start=timezone.now() + timedelta(days=3),
+            duration_minutes=60, capacity=12,
+        )
+        self.client_http.post(reverse("book", args=[self.sessao.pk]))
+        self.client_http.post(reverse("book", args=[outra.pk]))
+        marcacao = Booking.objects.get(session=outra, client=self.aluno)
+        self.client_http.post(reverse("cancel_booking", args=[marcacao.pk]))
+
+        soma = sum(
+            m.quantidade for m in
+            MovimentoCredito.objects.filter(
+                client=self.aluno, credit_type=CreditType.SMALL_GROUP
+            )
+        )
+        self.aluno.refresh_from_db()
+        self.assertEqual(inicial + soma, self.aluno.sessoes_sg)
+
+    # --- o livro não se mexe --------------------------------------------
+
+    def test_o_admin_nao_deixa_criar_alterar_nem_apagar(self):
+        from bookings.admin import MovimentoCreditoAdmin
+        from django.contrib.admin.sites import site
+        painel = MovimentoCreditoAdmin(MovimentoCredito, site)
+        self.assertFalse(painel.has_add_permission(None))
+        self.assertFalse(painel.has_change_permission(None))
+        self.assertFalse(painel.has_delete_permission(None))
+
+    def test_reserva_falhada_nao_deixa_movimento(self):
+        """Sem saldo não há desconto, logo também não pode haver linha."""
+        User.objects.filter(pk=self.aluno.pk).update(sessoes_sg=0)
+        self.client_http.post(reverse("book", args=[self.sessao.pk]))
+        self.assertEqual(MovimentoCredito.objects.count(), 0)

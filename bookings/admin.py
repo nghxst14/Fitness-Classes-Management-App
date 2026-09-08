@@ -13,7 +13,10 @@ from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
 
-from .models import Booking, Location, Pack, ServiceType, Session, WeeklyProgramSlot
+from .models import (
+    Booking, Location, MovimentoCredito, Pack, ServiceType, Session,
+    WeeklyProgramSlot,
+)
 
 
 class HoraWidget(forms.Widget):
@@ -414,6 +417,46 @@ class PackAdmin(admin.ModelAdmin):
 # NOTA: o modelo ClientPack foi apagado de todo (jul 2026). Era do desenho
 # antigo, em que o saldo vivia dentro de cada pack comprado; hoje o saldo são
 # os 3 saldos do utilizador (User.sessoes_sg/pt/hybrid).
+
+
+@admin.register(MovimentoCredito)
+class MovimentoCreditoAdmin(admin.ModelAdmin):
+    """
+    O extrato dos créditos: SÓ DE LEITURA, de propósito.
+
+    Um livro que se pode editar deixa de servir para resolver discussões — é
+    o mesmo princípio de um extrato bancário. Não se acrescentam, não se
+    alteram e não se apagam linhas: para corrigir um saldo, o Sérgio ajusta-o
+    nos Utilizadores, e esse ajuste fica aqui registado como mais uma linha.
+    """
+
+    list_display = (
+        "created_at", "client", "tipo_e_quantidade", "motivo",
+        "saldo_depois", "session", "feito_por",
+    )
+    list_filter = ("credit_type", "motivo")
+    search_fields = ("client__username", "client__first_name", "client__last_name")
+    date_hierarchy = "created_at"
+    list_select_related = ("client", "session", "feito_por")
+
+    @admin.display(description="Movimento", ordering="quantidade")
+    def tipo_e_quantidade(self, obj):
+        """Ex.: "+10 Small Group" a verde, "−1 PT" a vermelho."""
+        cor = "#2e7d32" if obj.quantidade >= 0 else "#c62828"
+        sinal = "+" if obj.quantidade >= 0 else "−"
+        return format_html(
+            '<b style="color:{}">{}{}</b> {}',
+            cor, sinal, abs(obj.quantidade), obj.get_credit_type_display(),
+        )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Booking)

@@ -14,7 +14,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .forms import SignUpForm
-from .models import Booking, Pack, Session
+from .models import Booking, MovimentoCredito, Pack, Session
 
 
 def _saldos_json(user):
@@ -169,6 +169,17 @@ def book(request, session_id):
                 session=session, client=request.user, status=Booking.BOOKED
             )
 
+        # O extrato: dentro da mesma transação do desconto, para não haver
+        # como ficar um sem o outro.
+        MovimentoCredito.registar(
+            client=request.user,
+            credit_type=session.credit_type,
+            quantidade=-1,
+            motivo=MovimentoCredito.RESERVA,
+            session=session,
+            feito_por=request.user,
+        )
+
     request.user.refresh_from_db(fields=[campo])
     restantes = request.user.creditos_de(session.credit_type)
     label = session.service_type.get_credit_type_display()
@@ -226,6 +237,14 @@ def cancel_booking(request, booking_id):
             User = get_user_model()
             campo = User.campo_saldo(booking.session.credit_type)
             User.objects.filter(pk=request.user.pk).update(**{campo: F(campo) + 1})
+            MovimentoCredito.registar(
+                client=request.user,
+                credit_type=booking.session.credit_type,
+                quantidade=1,
+                motivo=MovimentoCredito.CANCELAMENTO,
+                session=booking.session,
+                feito_por=request.user,
+            )
 
     if not cancelou:
         messages.error(request, "Esta marcação já não está ativa.")

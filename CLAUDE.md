@@ -47,7 +47,7 @@ espaço para fazer bem, não licença para complicar.
 ```powershell
 venv\Scripts\activate
 python manage.py runserver          # http://127.0.0.1:8000/  (site) e /admin/
-python manage.py test accounts bookings   # 76 testes, todos a passar
+python manage.py test accounts bookings   # 85 testes, todos a passar
 ```
 `makemigrations` + `migrate` só quando os modelos mudam. Ao mexer no CSS, o
 browser cacheia — usar **Ctrl+F5**. Detalhes completos em `GUIA_COMANDOS.md`.
@@ -78,8 +78,8 @@ commit partem o parser — escrever mensagens sem aspas duplas.
   - `admin.py` — admin dos Utilizadores + filtro "Faz anos hoje".
   - `tests.py` — testes do throttle de login.
 - `bookings/` — o núcleo do negócio:
-  - `models.py` — `Location`, `ServiceType`, `Session`, `Pack`, `ClientPack`,
-    `WeeklyProgramSlot`, `Booking` + sinal `pre_delete` de reembolso.
+  - `models.py` — `Location`, `ServiceType`, `Session`, `MovimentoCredito`,
+    `Pack`, `WeeklyProgramSlot`, `Booking` + sinal `pre_delete` de reembolso.
   - `views.py` — páginas do site (home, signup, schedule, book, my_bookings,
     cancel_booking, packages).
   - `forms.py` — `SignUpForm`, `PhoneLoginForm`, `normalizar_telemovel()`.
@@ -130,7 +130,10 @@ Estas decisões vieram de reuniões com o Sérgio e **substituem** ideias antiga
 
 4. **Créditos atribuídos manualmente pelo Sérgio.** Após o pagamento, ele vai
    ao admin → Utilizadores e edita os 3 saldos (editáveis direto na lista via
-   `list_editable`). O histórico fica no "History" do objeto no admin.
+   `list_editable`). Cada ajuste fica registado no **livro de movimentos**
+   (`MovimentoCredito`) com o valor, o motivo e quem o fez — o "History" do
+   admin não serve para isto: só diz que o campo mexeu, nunca de quanto para
+   quanto, e não apanha de todo as alterações automáticas.
 
 5. **Recuperação de password = via WhatsApp.** NÃO há reset por email. O link
    "Esqueci-me da password" no login abre o WhatsApp do Sérgio (constante
@@ -185,6 +188,18 @@ admin, só há o Sérgio**), `location` (FK, SET_NULL, vazio = online), `title`
 local→`class-online.jpg`). No `save()`, quando passa de ativa→cancelada, chama
 `_refund_active_bookings()` que cancela as marcações ativas e devolve 1 crédito
 **ao balde certo** de cada aluno.
+
+**`bookings.MovimentoCredito`** — o **extrato dos créditos**: uma linha por
+cada alteração de saldo (`client`, `credit_type`, `quantidade` com sinal,
+`motivo`, `saldo_depois`, `session`, `feito_por`, `created_at`). O saldo
+continua no `User` porque é rápido de ler; este livro vive ao lado como a
+verdade auditável — se algum dia discordarem, o livro é que manda, e a
+discordância é o sinal de que algo correu mal. Registado nos **cinco** sítios
+que mexem em saldos: `book()`, `cancel_booking()`, `_refund_active_bookings()`,
+o sinal `pre_delete`, e o `save_model()` do `UserAdmin` (o ajuste manual do
+Sérgio, que é por onde entra o dinheiro). Sempre **dentro da transação que
+alterou o saldo**, para não haver como ficar um sem o outro. No admin é
+**só de leitura** — um livro que se pode editar não resolve discussões.
 
 **`bookings.Pack`** — produto de créditos: `name`, `description`,
 **`credit_type`**, `number_of_sessions` (= créditos que dá), `price` (opcional),
@@ -400,7 +415,7 @@ permissões na ficha (só um superuser).
 
 ## 10. Testes
 
-**76 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
+**85 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
 throttle de login, normalização/registo/login por telemóvel, isolamento de
 créditos por tipo, reembolsos (cancelar sessão, apagar sessão/marcação, cancelar
 reserva), filtros e ações do admin de Sessões, coluna Telemóvel, gerador do
@@ -416,7 +431,8 @@ mudanças de lógica.
 ## 11. Estado atual
 
 **FEITO:** estrutura e modelos; login/registo por telemóvel com normalização;
-créditos por tipo (SG/PT/Hybrid) com reserva/cancelamento/reembolso atómicos;
+créditos por tipo (SG/PT/Hybrid) com reserva/cancelamento/reembolso atómicos
+e livro de movimentos que explica cada saldo;
 horário por dia com limites e os quatro estados do cartão; programa semanal +
 gerador com ajustes por semana; pacotes com WhatsApp (sem preços); admin muito
 personalizado (cancelar/reativar por aula, filtros checkbox, coluna Inscritos e
@@ -424,7 +440,7 @@ Telemóvel, widget de hora, seta Voltar, botão Limpar, edição em linha nas
 Sessões); tema visual RESTART NOW com faixa de saldos e selos por tipo;
 etiquetas de partilha e favicon; responsividade verificada em todo o site e
 admin (360/390/768/1024/1400px); throttle de login; recuperação via WhatsApp;
-76 testes; GitHub ligado (privado).
+85 testes; GitHub ligado (privado).
 
 **POR FAZER (ver `PENDENTES.md` para o detalhe):**
 1. **Info do Sérgio sobre pacotes** — nomes/nº de sessões/`credit_type` reais;
@@ -448,13 +464,17 @@ admin (360/390/768/1024/1400px); throttle de login; recuperação via WhatsApp;
    superuser **`claude-preview`**, os 12 alunos com `(demo)` no apelido, a
    conta `912000000`, e as aulas com `DEMO - apagar antes do deploy` no campo
    de notas.
-6. **Rasto dos créditos** — o saldo é um inteiro sobrescrito e as alterações
-   automáticas usam `.update()`, que não deixa histórico. Quando um aluno
-   perguntar por que tem o saldo que tem, não há resposta possível. É a maior
-   lacuna conhecida; ver o relatório de auditoria e o `PENDENTES.md`.
-7. **Cópias de segurança, RGPD, monitorização de erros e páginas 404/500** —
+6. **Cópias de segurança, RGPD, monitorização de erros e páginas 404/500** —
    nenhuma existe. Todas bloqueiam um lançamento a sério.
-8. Mini-guia do admin para o Sérgio (formação de entrega).
+7. **Travão no login do `/admin/`** e a cache do throttle (hoje em memória do
+   processo, não sobrevive a um deploy nem a mais do que um worker).
+8. **N+1 nas contagens de inscritos** — 2 queries por aula no horário
+   (24 para 10 aulas) e até 209 no ecrã do admin. Resolve-se com um
+   `annotate(Count(...))` na consulta.
+9. Mini-guia do admin para o Sérgio (formação de entrega).
+
+*(O **rasto dos créditos**, que era a maior lacuna conhecida, ficou feito em
+set 2026 — ver `MovimentoCredito` na secção 5.)*
 
 **Decisões fechadas (não fazer):** sem lembrete automático de aniversários (só
 o filtro manual "Faz anos hoje"); sem pagamentos online; sem integração de
