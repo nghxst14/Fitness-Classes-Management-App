@@ -222,3 +222,74 @@ browser.
   `makemigrations` + `migrate`.
 - **O `runserver` diz "That port is already in use"** → já tens um servidor a
   correr noutro terminal, ou usa outra porta: `python manage.py runserver 8001`.
+
+---
+
+## 10. Cópias de segurança
+
+### Fazer uma cópia
+
+```powershell
+.\scripts\backup.ps1
+```
+
+Guarda um ficheiro JSON com utilizadores (e saldos), marcações, movimentos de
+créditos, aulas e configuração. Vai por defeito para uma pasta da **OneDrive**
+— de propósito: uma cópia guardada no mesmo disco que a base de dados não te
+salva de o disco falhar.
+
+Para copiar a base de dados **de produção** (o Railway), define primeiro a
+`DATABASE_URL` só nessa janela e usa o `-Producao`:
+
+```powershell
+$env:DATABASE_URL = "postgresql://..."
+```
+
+```powershell
+.\scripts\backup.ps1 -Producao
+```
+
+(a `DATABASE_URL` está no Railway, no separador *Variables* do PostgreSQL)
+
+### Quando correr
+
+- **Antes de qualquer coisa que apague** — limpar dados de teste, migrações,
+  ações em massa no admin. É a que mais vezes salva.
+- De tempos a tempos, assim que houver créditos pagos a sério em jogo.
+
+### Testar o restauro — e porquê
+
+**Uma cópia por testar não é uma cópia.** É a única parte disto que não pode
+ser saltada: uma cópia estragada parece perfeitamente normal e só se revela
+imprestável no dia em que precisas dela.
+
+Não é conversa: as duas primeiras cópias que este script produziu **não
+restauravam**, e ambas pareciam bem. Uma tinha a marca BOM que o PowerShell
+acrescenta; a outra tinha os acentos gravados na codificação do Windows em vez
+de UTF-8. Só o teste de restauro as apanhou.
+
+O teste faz-se contra uma base de dados de rascunho, **nunca contra a tua**:
+
+```powershell
+$env:PYTHONUTF8 = "1"; $env:DATABASE_URL = "sqlite:///C:/Users/Andre/AppData/Local/Temp/teste-restauro.sqlite3"
+```
+
+```powershell
+python manage.py migrate; python manage.py loaddata "CAMINHO\DA\COPIA.json"
+```
+
+Deve dizer `Installed N object(s)`. Depois confirma que os dados lá estão:
+
+```powershell
+python manage.py shell -c "from django.contrib.auth import get_user_model as g; print({u.username: u.sessoes_sg for u in g().objects.all()})"
+```
+
+No fim, **fecha esse terminal** (ou apaga a variável com
+`Remove-Item Env:DATABASE_URL`), senão continuas a trabalhar contra a base de
+dados de rascunho sem dar por isso.
+
+### Restaurar a sério
+
+O mesmo `loaddata`, mas sem a `DATABASE_URL` de rascunho — corre contra a base
+de dados verdadeira. **Faz uma cópia do estado atual antes**, mesmo que ele
+esteja mau: pode ser que o problema não fosse o que pensavas.

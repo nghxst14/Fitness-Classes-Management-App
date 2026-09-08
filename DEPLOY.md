@@ -82,10 +82,34 @@ esta conta que o Sérgio entra em `/<dominio>/admin/`.
 
 ---
 
+## Cópias de segurança — antes de haver créditos pagos
+
+**Fazer isto antes de o Sérgio começar a somar créditos a sério.** A partir
+desse momento, a base de dados deixa de ser "dados da app" e passa a ser
+dinheiro que os alunos já pagaram — e que não se consegue reconstruir, porque
+o pagamento aconteceu numa conversa de WhatsApp.
+
+São duas camadas, e as duas fazem falta:
+
+- [ ] **Ligar as cópias automáticas do PostgreSQL no Railway.** Protege-te do
+      erro comum: uma migração infeliz, um apagar a mais no admin, uma ação em
+      massa que levou coisas atrás em cascata.
+- [ ] **Guardar uma cópia FORA do Railway.** É a camada que as pessoas saltam e
+      a que conta no dia em que conta: as cópias do Railway vivem dentro da
+      conta do Railway e vão atrás se a conta for suspensa, se o pagamento
+      falhar ou se alguém apagar o serviço. Faz-se com
+      `.\scripts\backup.ps1 -Producao` (ver `GUIA_COMANDOS.md`, secção 10).
+- [ ] **Testar um restauro. Uma vez, a sério.** Uma cópia por testar não é uma
+      cópia: uma cópia estragada parece perfeitamente normal e só se revela
+      imprestável no dia em que precisas dela. As duas primeiras cópias que
+      este projeto produziu **não restauravam** — e ambas pareciam bem. O
+      procedimento está no `GUIA_COMANDOS.md`, secção 10.
+
 ## Depois do deploy (checklist final)
 
 - [ ] **Limpar dados de teste** (se algum foi para a base de dados de produção):
-      User1/2/3, Ana Teste, aulas e pacotes fictícios.
+      User1/2/3, Ana Teste, aulas e pacotes fictícios. **Fazer uma cópia
+      primeiro** — apagar em massa é precisamente quando isto salva.
 - [ ] **Configurar os pacotes e os tipos de serviço reais** com o Sérgio
       (nomes, nº de sessões, preços, `credit_type`).
 - [ ] **Rever o Programa semanal** (tipo/local de cada encaixe).
