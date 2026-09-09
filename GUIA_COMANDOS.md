@@ -1,8 +1,11 @@
-# Guia de comandos — Gestão de Treinos
+# Guia de comandos — RESTART NOW
 
 Referência dos comandos que vais usar neste projeto, com uma descrição do que
 cada um faz. Corre-os no **PowerShell**, dentro da pasta do projeto
-(`...\Gestao de treinos`), com o ambiente virtual ativo (ver secção 1).
+(`Fitness-Classes-Management-App`), com o ambiente virtual ativo (ver secção 1).
+
+> **Nota do PowerShell 5.1:** não aceita `&&` para encadear comandos — usa `;`.
+> E nas mensagens de commit, evita aspas duplas: partem o parser.
 
 ---
 
@@ -173,12 +176,13 @@ winget install --id Cloudflare.cloudflared --source winget
 ## 6. Abrir o terminal na pasta certa
 
 - No Explorador de Ficheiros, abre a pasta do projeto, clica na **barra de
-  endereço**, escreve `powershell` e Enter. Abre já no sítio certo.
-- Ou, num terminal qualquer:
-  ```powershell
-  cd "C:\Users\André\Documents\CLAUDE\Gestao de treinos"
-  ```
-  Muda para a pasta do projeto (as aspas são precisas por causa dos espaços).
+  endereço**, escreve `powershell` e Enter. Abre já no sítio certo. É a forma
+  mais fiável, porque não depende de decorares o caminho.
+- Ou, num terminal qualquer, `cd` para a pasta onde clonaste o repositório.
+  Se o caminho tiver espaços ou acentos, mete-o entre aspas.
+
+> O caminho **não é o mesmo em todas as máquinas** — depende de onde clonaste.
+> Por isso este guia não o fixa em lado nenhum.
 
 ---
 
@@ -224,12 +228,19 @@ Cuidado: perde o que não foi commitado.
 
 ---
 
-## 8. Testar a recuperação de password (em desenvolvimento)
+## 8. Passwords dos alunos
 
-Não é preciso servidor de email. Ao pedir a recuperação, o email com o link é
-"enviado" para o **terminal onde corre o `runserver`** — procura lá um bloco de
-texto com um link tipo `http://127.0.0.1:8000/conta/reset/...` e abre-o no
-browser.
+**Não há recuperação por email.** Foi decisão do projeto: o Sérgio vive no
+WhatsApp e o email não é usado em lado nenhum (os alunos entram com o número de
+telemóvel, não com email).
+
+O link **"Esqueci-me da password"** na página de login abre a conversa de
+WhatsApp com o Sérgio, com a mensagem já escrita. Ele redefine a password no
+admin: *Utilizadores → o aluno → no campo da password, o link "alterar"*.
+
+> Isto explica também porque é que o aluno **não pode mudar a password
+> sozinho** — não existe essa página. Está anotado como lacuna em
+> `CLAUDE.md`, secção 11.
 
 ---
 
