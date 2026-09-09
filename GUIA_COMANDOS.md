@@ -31,15 +31,35 @@ O ambiente virtual é uma "caixa" isolada onde ficam as bibliotecas deste projet
 (como o Django), sem se misturarem com o resto do computador.
 
 ```powershell
-python -m venv venv
+py -3.12 -m venv venv
 ```
-Cria o ambiente virtual (só é preciso **uma vez**, no arranque do projeto).
+Cria o ambiente virtual (só é preciso **uma vez**, ou quando for preciso
+recriá-lo).
+
+> **Porquê `py -3.12` e não `python`?** Porque há mais do que uma versão do
+> Python instalada nesta máquina (o 3.12 para este projeto, o 3.14 para o
+> resto), e o `python` solto aponta para a **mais recente**. Se criares o venv
+> com `python`, ficas silenciosamente com um venv 3.14 — que não é a versão
+> que o `.python-version` declara nem a que o Railway usa, e que o Django 5.1
+> nem sequer suporta oficialmente (vai só até ao 3.13).
+>
+> Isto **já partiu este projeto uma vez**: o venv tinha ficado num 3.13 que
+> depois desapareceu, e a app deixou de arrancar. Ver as versões disponíveis:
+> `py --list`.
 
 ```powershell
 venv\Scripts\activate
 ```
 Ativa o ambiente. Tens de fazer isto **sempre que abres um terminal novo** para
-trabalhar. Quando está ativo, aparece `(venv)` no início da linha.
+trabalhar. Quando está ativo, aparece `(venv)` no início da linha — e a partir
+daí `python` significa o 3.12 do projeto, não o 3.14 do sistema.
+
+```powershell
+.\venv\Scripts\python.exe --version
+```
+Confirma que o venv está na versão certa. Deve dizer **Python 3.12.x**. Se
+disser outra coisa, o venv foi criado com a versão errada: apaga a pasta
+`venv` e volta ao primeiro comando desta secção.
 
 ```powershell
 deactivate
@@ -222,6 +242,10 @@ browser.
   `makemigrations` + `migrate`.
 - **O `runserver` diz "That port is already in use"** → já tens um servidor a
   correr noutro terminal, ou usa outra porta: `python manage.py runserver 8001`.
+- **Erros estranhos a importar bibliotecas, ou o Django a queixar-se da versão
+  do Python** → o venv pode ter sido criado com a versão errada. Confirma com
+  `.\venv\Scripts\python.exe --version` (tem de ser 3.12.x); se não for, apaga
+  a pasta `venv` e recria com `py -3.12 -m venv venv` (secção 1).
 
 ---
 

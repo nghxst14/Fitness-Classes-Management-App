@@ -56,6 +56,13 @@ browser cacheia — usar **Ctrl+F5**. Detalhes completos em `GUIA_COMANDOS.md`.
 absoluto do Python que o criou). Se o projeto mudar de máquina ou de perfil de
 utilizador, é preciso recriá-lo — ver `GUIA_COMANDOS.md`.
 
+**Há mais do que um Python nesta máquina** (set 2026): o 3.12 para este
+projeto e o **3.14** para tudo o resto, que é o que o `python` solto aponta.
+Recriar o venv tem de ser sempre com **`py -3.12 -m venv venv`** — com
+`python` ficaria um venv 3.14, desalinhado do `.python-version` e da produção,
+e o Django 5.1 só suporta oficialmente até ao 3.13. Confirmar com
+`.\venv\Scripts\python.exe --version` (tem de dizer 3.12.x).
+
 **Mostrar o site a alguém de fora:** `.\scripts\demonstracao.ps1` levanta um
 endereço público temporário (túnel Cloudflare) com as definições de produção.
 O endereço é sorteado a cada arranque e morre com o script — serve para uma
