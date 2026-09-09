@@ -1,11 +1,12 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
+from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
-
-from datetime import time
 
 from accounts.models import CreditType
 from .forms import PhoneLoginForm, SignUpForm, normalizar_telemovel
@@ -673,21 +674,40 @@ class AulasPassadasTests(TestCase):
         )
         self.client_http = Client()
         self.client_http.force_login(self.student)
-        agora = timezone.now()
-        # Ambas HOJE: é o caso real — o horário de hoje mistura aulas que já
-        # aconteceram de manhã com as que ainda faltam à tarde.
+
+        # As horas são FIXAS e o relógio é fixado no _html(), de propósito.
+        #
+        # A primeira versão deste teste usava "agora - 3h" e "agora + 3h". Isso
+        # torna-o instável: corrido depois da meia-noite, a aula de "há 3
+        # horas" cai no dia ANTERIOR e desaparece do horário, que só mostra um
+        # dia de cada vez. O teste passava de dia e falhava de madrugada — foi
+        # apanhado a correr a suite às 00:52.
+        #
+        # Com o relógio às 14:00, a das 09:00 já decorreu e a das 19:00 ainda
+        # não, sempre. É também o caso real: o horário de hoje mistura aulas
+        # que já aconteceram de manhã com as que ainda faltam à tarde.
+        TZ = ZoneInfo(settings.TIME_ZONE)
+        self.dia = timezone.localdate()
+        self.agora = datetime.combine(self.dia, time(14, 0)).replace(tzinfo=TZ)
         self.passada = Session.objects.create(
-            service_type=self.service, start=agora - timedelta(hours=3),
+            service_type=self.service,
+            start=datetime.combine(self.dia, time(9, 0)).replace(tzinfo=TZ),
             duration_minutes=60, capacity=12,
         )
         self.futura = Session.objects.create(
-            service_type=self.service, start=agora + timedelta(hours=3),
+            service_type=self.service,
+            start=datetime.combine(self.dia, time(19, 0)).replace(tzinfo=TZ),
             duration_minutes=60, capacity=12,
         )
 
     def _html(self):
-        hoje = timezone.localdate().strftime("%Y-%m-%d")
-        return self.client_http.get(reverse("schedule"), {"date": hoje}).content.decode()
+        # Fixar o timezone.now() cobre tudo: o is_past do modelo e o
+        # localdate() da view (que chama o now() por baixo).
+        with patch("django.utils.timezone.now", return_value=self.agora):
+            resposta = self.client_http.get(
+                reverse("schedule"), {"date": self.dia.isoformat()}
+            )
+        return resposta.content.decode()
 
     def test_aula_passada_mostra_ja_decorreu(self):
         html = self._html()

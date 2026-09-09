@@ -257,6 +257,11 @@ admin: *Utilizadores → o aluno → no campo da password, o link "alterar"*.
   do Python** → o venv pode ter sido criado com a versão errada. Confirma com
   `.\venv\Scripts\python.exe --version` (tem de ser 3.12.x); se não for, apaga
   a pasta `venv` e recria com `py -3.12 -m venv venv` (secção 1).
+- **O `pip install` falha com "Could not install packages due to an OSError:
+  No such file or directory"** e um caminho enorme → é o limite de 260
+  caracteres do Windows. Acontece quando o projeto está clonado numa pasta
+  muito funda; um dos ficheiros do `psycopg` tem nome comprido e não cabe.
+  **Solução: clona o projeto mais perto da raiz** (ex.: `C:\projetos\`).
 
 ---
 
