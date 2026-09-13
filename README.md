@@ -101,8 +101,10 @@ Group **não** paga uma aula de PT.
 | Ficheiro | Para quê |
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | O contexto todo: decisões, modelos, admin, segurança. **Ler primeiro.** |
+| [`MANUAL.md`](MANUAL.md) | **Manual do Sérgio** — como usar a app, tarefa a tarefa. Não técnico. Há um `MANUAL.pdf` ao lado, para lhe dar. |
 | [`GUIA_COMANDOS.md`](GUIA_COMANDOS.md) | Comandos passo a passo, cópias de segurança, problemas comuns |
 | [`PENDENTES.md`](PENDENTES.md) | Decisões à espera do cliente e o que já ficou fechado |
+| [`REUNIAO-SERGIO.md`](REUNIAO-SERGIO.md) | Guião da reunião de apresentação: o que mostrar e que decisões trazer |
 | [`DEPLOY.md`](DEPLOY.md) | Pôr online no Railway |
 | [`static/img/brand/MARCA.md`](static/img/brand/MARCA.md) | Paleta e logótipo |
 | [`docs/referencias-ui.md`](docs/referencias-ui.md) | Inspiração visual |

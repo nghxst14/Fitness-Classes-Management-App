@@ -333,3 +333,36 @@ dados de rascunho sem dar por isso.
 O mesmo `loaddata`, mas sem a `DATABASE_URL` de rascunho — corre contra a base
 de dados verdadeira. **Faz uma cópia do estado atual antes**, mesmo que ele
 esteja mau: pode ser que o problema não fosse o que pensavas.
+
+---
+
+## 11. Gerar os PDFs dos manuais
+
+O `MANUAL.md` (para o Sérgio) e o `REUNIAO-SERGIO.md` têm uma versão em PDF ao
+lado, para dar a ler a quem não abre ficheiros do GitHub. **O Markdown é a
+fonte da verdade** — o PDF é gerado a partir dele, para não haver duas versões
+a divergir.
+
+Sempre que mexeres num desses documentos, volta a gerar o PDF:
+
+```powershell
+python scripts\md_para_pdf.py MANUAL.md
+```
+
+```powershell
+python scripts\md_para_pdf.py REUNIAO-SERGIO.md
+```
+
+Da primeira vez é preciso a biblioteca que desenha o PDF:
+
+```powershell
+pip install reportlab
+```
+
+> Ela **não está no `requirements.txt`** de propósito: a app não precisa dela,
+> é só uma ferramenta de escritório. Não vale a pena o servidor de produção a
+> instalar.
+
+**Nota sobre emoji:** os documentos podem usar emoji (aparecem bem no GitHub e
+no editor), mas as fontes do PDF não os têm. O script trata disso sozinho —
+converte os que têm equivalente em texto e remove os restantes.
