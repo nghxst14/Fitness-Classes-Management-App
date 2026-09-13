@@ -1,0 +1,17 @@
+# Ficheiros BINÁRIOS: o Git nunca lhes deve tocar.
+#
+# Porquê: no Windows, o Git costuma converter os fins de linha ao gravar e ao
+# ler (LF <-> CRLF). Num ficheiro de texto isso é inofensivo; num PDF ou numa
+# imagem, troca bytes a meio do ficheiro e **corrompe-o**. O Git deteta os
+# binários sozinho na maioria dos casos, mas essa deteção depende das
+# definições de cada máquina — e este projeto é usado em mais do que uma.
+# Declarar aqui tira a dúvida em qualquer computador.
+*.pdf     binary
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.woff    binary
+*.woff2   binary
+*.sqlite3 binary
