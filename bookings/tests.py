@@ -1682,3 +1682,126 @@ class PresencasTests(TestCase):
         self.painel.post(self.url, {f"estado_{self.m_ana.pk}": Booking.ATTENDED})
         self.m_ana.refresh_from_db()
         self.assertEqual(self.m_ana.status, Booking.ATTENDED)
+
+
+class VistaSemanalTests(TestCase):
+    """
+    O horário da semana inteira, além do dia a dia.
+
+    Quem quer marcar as aulas da semana tinha de andar de seta em seta,
+    sete vezes. Os limites da janela (-3/+14 dias) são os mesmos: mostrar
+    uma semana não é abrir a agenda toda.
+    """
+
+    def setUp(self):
+        self.servico = ServiceType.objects.create(
+            name="Aula", default_capacity=10, credit_type=CreditType.SMALL_GROUP
+        )
+        self.aluno = User.objects.create_user(
+            username="913000031", password="x", sessoes_sg=5
+        )
+        self.cliente = Client()
+        self.cliente.force_login(self.aluno)
+        self.url = reverse("schedule_semana")
+
+    def _aula(self, dias):
+        return Session.objects.create(
+            service_type=self.servico,
+            start=timezone.now() + timedelta(days=dias),
+            duration_minutes=60, capacity=10,
+        )
+
+    def test_mostra_os_sete_dias_da_semana(self):
+        dias = self.cliente.get(self.url).context["dias"]
+        self.assertEqual(len(dias), 7)
+
+    def test_agrupa_cada_aula_no_seu_dia(self):
+        self._aula(1)
+        self._aula(1)
+        self._aula(2)
+        dias = self.cliente.get(self.url).context["dias"]
+        contagens = sorted(len(d["sessions"]) for d in dias)
+        self.assertEqual(contagens[-2:], [1, 2])
+
+    def test_nao_mostra_aulas_canceladas(self):
+        aula = self._aula(1)
+        aula.is_cancelled = True
+        aula.save()
+        dias = self.cliente.get(self.url).context["dias"]
+        self.assertEqual(sum(len(d["sessions"]) for d in dias), 0)
+
+    def test_respeita_o_limite_de_14_dias_para_a_frente(self):
+        # Pedir uma semana muito à frente fixa-se no limite, como no dia a dia.
+        longe = (timezone.localdate() + timedelta(days=120)).strftime("%Y-%m-%d")
+        contexto = self.cliente.get(self.url, {"date": longe}).context
+        self.assertLessEqual(
+            contexto["dias"][0]["dia"], timezone.localdate() + timedelta(days=14)
+        )
+
+    def test_nao_consulta_por_aula(self):
+        # O mesmo N+1 que o horário do dia tinha: aqui seria sete vezes pior.
+        def consultas(quantas):
+            Session.objects.all().delete()
+            for i in range(quantas):
+                Session.objects.create(
+                    service_type=self.servico,
+                    start=timezone.now() + timedelta(days=1, minutes=i * 30),
+                    duration_minutes=60, capacity=10,
+                )
+            with CaptureQueriesContext(connection) as c:
+                self.cliente.get(self.url)
+            return len(c)
+
+        self.assertEqual(consultas(2), consultas(12))
+
+
+class InstalarNoTelemovelTests(TestCase):
+    """
+    O que é preciso para o telemóvel oferecer "instalar no ecrã principal".
+
+    São três coisas, e falta uma chega para a opção não aparecer: o manifest
+    ligado nas páginas, o manifest servido com os ícones, e um service worker
+    servido **da raiz** (um worker só manda no seu nível e abaixo — a partir
+    de /static/ não chegaria às páginas).
+    """
+
+    def setUp(self):
+        self.aluno = User.objects.create_user(username="913000041", password="x")
+        self.cliente = Client()
+        self.cliente.force_login(self.aluno)
+
+    def test_as_paginas_ligam_o_manifest(self):
+        html = self.cliente.get(reverse("home")).content.decode()
+        self.assertIn('rel="manifest"', html)
+
+    def test_o_service_worker_e_servido_da_raiz(self):
+        resposta = self.client.get("/sw.js")
+        self.assertEqual(resposta.status_code, 200)
+        self.assertIn("javascript", resposta["Content-Type"])
+
+    def test_o_service_worker_nao_guarda_paginas(self):
+        """
+        Guardar páginas numa app de marcações mostraria vagas que já não
+        existem e saldos errados. Só se guardam ficheiros estáticos.
+
+        Testa-se a **regra** de cache, não o texto do ficheiro: procurar
+        palavras apanhava-as nos comentários (que falam de /horario/
+        precisamente para explicar o que não se guarda) e o teste mentia.
+        """
+        corpo = self.client.get("/sw.js").content.decode()
+        declaracao = re.search(r"PARA_GUARDAR\s*=\s*/(.+?)/;", corpo)
+        self.assertIsNotNone(declaracao, "não há regra de cache no sw.js")
+
+        # A sintaxe da regex é a mesma nas duas linguagens para este padrão.
+        regra = re.compile(declaracao.group(1))
+
+        for estatico in ("/static/css/style.css", "/static/img/brand/icon-192.png"):
+            self.assertIsNotNone(regra.search(estatico), f"{estatico} devia ser guardado")
+
+        for pagina in ("/horario/", "/horario/semana/", "/pacotes/",
+                       "/as-minhas-marcacoes/", "/admin/bookings/session/"):
+            self.assertIsNone(regra.search(pagina), f"{pagina} NÃO pode ser guardada")
+
+    def test_o_service_worker_nao_precisa_de_login(self):
+        # É pedido pelo browser sem sessão; atrás de login nunca registaria.
+        self.assertEqual(Client().get("/sw.js").status_code, 200)

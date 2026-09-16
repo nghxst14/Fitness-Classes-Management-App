@@ -64,17 +64,9 @@ def schedule(request):
     """
     # Limites de navegação: nem sempre faz sentido andar para sempre. O aluno
     # pode ver até 3 dias atrás (aulas recentes) e 14 dias à frente (marcar).
-    hoje = timezone.localdate()
-    dia_min = hoje - timedelta(days=3)
-    dia_max = hoje + timedelta(days=14)
-
-    day_str = request.GET.get("date")
-    try:
-        day = datetime.strptime(day_str, "%Y-%m-%d").date() if day_str else hoje
-    except (ValueError, TypeError):
-        day = hoje
-    # Não deixar sair da janela permitida (mesmo por URL escrito à mão).
-    day = min(max(day, dia_min), dia_max)
+    # A janela e a leitura do ?date= são partilhadas com a vista de semana.
+    hoje, dia_min, dia_max = _janela_do_horario()
+    day = _dia_pedido(request, dia_min, dia_max, hoje)
 
     sessions = (
         Session.objects.filter(start__date=day, is_cancelled=False)
@@ -82,22 +74,11 @@ def schedule(request):
         .com_inscritos()
         .order_by("start")
     )
-    my_session_ids = set(
-        Booking.objects.filter(
-            client=request.user, status=Booking.BOOKED
-        ).values_list("session_id", flat=True)
-    )
-    # Em que filas este aluno está — um conjunto só, para o template não ter
-    # de perguntar aula a aula.
-    minhas_esperas = set(
-        ListaEspera.objects.filter(
-            client=request.user, estado=ListaEspera.A_ESPERA
-        ).values_list("session_id", flat=True)
-    )
     context = {
         "sessions": sessions,
-        "my_session_ids": my_session_ids,
-        "minhas_esperas": minhas_esperas,
+        # Conjuntos, para o template não ter de perguntar aula a aula.
+        "my_session_ids": _minhas_reservas(request.user),
+        "minhas_esperas": _minhas_esperas(request.user),
         "day": day,
         "prev_day": day - timedelta(days=1),
         "next_day": day + timedelta(days=1),
@@ -107,6 +88,96 @@ def schedule(request):
         "has_next": day < dia_max,
     }
     return render(request, "schedule.html", context)
+
+
+def _janela_do_horario():
+    """
+    Os limites de navegação do horário: 3 dias para trás, 14 para a frente.
+
+    Estava escrito dentro da `schedule`; foi para aqui quando a vista de
+    semana passou a precisar dos mesmos. Dois sítios a decidir a mesma coisa
+    acabariam por discordar.
+    """
+    hoje = timezone.localdate()
+    return hoje, hoje - timedelta(days=3), hoje + timedelta(days=14)
+
+
+def _dia_pedido(request, dia_min, dia_max, por_omissao):
+    """Lê ?date=AAAA-MM-DD e fixa-o à janela (mesmo escrito à mão no URL)."""
+    texto = request.GET.get("date")
+    try:
+        dia = datetime.strptime(texto, "%Y-%m-%d").date() if texto else por_omissao
+    except (ValueError, TypeError):
+        dia = por_omissao
+    return min(max(dia, dia_min), dia_max)
+
+
+@login_required
+def schedule_semana(request):
+    """
+    A semana inteira, dia a dia, em vez de uma seta de cada vez.
+
+    Para marcar as aulas da semana era preciso andar de seta em seta sete
+    vezes. Mostra sempre 7 dias a partir do dia pedido — e não de segunda a
+    domingo: a meio da semana, uma grelha fixa gastaria metade do ecrã com
+    dias já passados.
+    """
+    hoje, dia_min, dia_max = _janela_do_horario()
+    primeiro = _dia_pedido(request, dia_min, dia_max, hoje)
+    ultimo = min(primeiro + timedelta(days=6), dia_max)
+
+    sessoes = (
+        Session.objects.filter(
+            start__date__gte=primeiro, start__date__lte=ultimo, is_cancelled=False
+        )
+        .select_related("service_type", "location")
+        .com_inscritos()
+        .order_by("start")
+    )
+    # Agrupar em memória: são no máximo sete dias de aulas, e uma consulta por
+    # dia seria o mesmo N+1 que se tirou do horário, multiplicado por sete.
+    por_dia = {}
+    for sessao in sessoes:
+        por_dia.setdefault(timezone.localtime(sessao.start).date(), []).append(sessao)
+
+    dias = [
+        {
+            "dia": primeiro + timedelta(days=n),
+            "sessions": por_dia.get(primeiro + timedelta(days=n), []),
+            "e_hoje": primeiro + timedelta(days=n) == hoje,
+        }
+        for n in range(7)
+    ]
+
+    return render(request, "schedule_semana.html", {
+        "dias": dias,
+        "my_session_ids": _minhas_reservas(request.user),
+        "minhas_esperas": _minhas_esperas(request.user),
+        "primeiro": primeiro,
+        "ultimo": ultimo,
+        "semana_anterior": max(primeiro - timedelta(days=7), dia_min),
+        "semana_seguinte": min(primeiro + timedelta(days=7), dia_max),
+        "has_prev": primeiro > dia_min,
+        "has_next": primeiro < dia_max,
+    })
+
+
+def _minhas_reservas(utilizador):
+    """Ids das aulas que este aluno tem reservadas (para o cartão)."""
+    return set(
+        Booking.objects.filter(
+            client=utilizador, status=Booking.BOOKED
+        ).values_list("session_id", flat=True)
+    )
+
+
+def _minhas_esperas(utilizador):
+    """Ids das aulas em cuja fila este aluno está."""
+    return set(
+        ListaEspera.objects.filter(
+            client=utilizador, estado=ListaEspera.A_ESPERA
+        ).values_list("session_id", flat=True)
+    )
 
 
 @login_required

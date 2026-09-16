@@ -1,0 +1,72 @@
+{% load static %}
+{% comment %}
+  O cartão de uma aula. Usado pelo horário do dia e pela vista de semana.
+
+  Espera no contexto:
+    s               — a Session (vinda de com_inscritos(), senão conta à parte)
+    my_session_ids  — ids das aulas que este aluno já reservou
+    minhas_esperas  — ids das aulas em cuja fila este aluno está
+
+  Está aqui num sítio só de propósito: são quatro estados com uma ordem que
+  importa (ver dentro), e duplicá-los por duas páginas era garantir que um
+  dia divergiam.
+{% endcomment %}
+        <li class="class-card{% if s.is_past %} class-card-passada{% endif %}"
+            {% if s.card_image %}style="background-image:url('{% static s.card_image %}')"{% endif %}>
+          <div class="class-card-body">
+            <span class="type-badge type-{{ s.credit_type }}">{{ s.service_type.get_credit_type_display }}</span>
+            <div class="class-card-title">{{ s.title|default:s.service_type.name }}</div>
+            {% comment %}
+              Hora, duração e local numa linha só. Eram duas, e num horário a
+              hora é o que se procura primeiro — por isso vem à frente.
+            {% endcomment %}
+            <div class="class-card-meta">
+              <b class="class-card-hora">{{ s.start|time:"H:i" }}</b>
+              · {{ s.duration_minutes }}'
+              · {% if s.location %}{{ s.location.name }}{% else %}Online{% endif %}
+            </div>
+
+            <div class="class-card-row">
+              <span class="capacity">
+                Lotação <b>{{ s.spots_taken }}</b><span class="sep">/</span>{{ s.capacity }}
+              </span>
+
+              {% comment %}
+                A ordem importa: "já decorreu" tem de ser testado ANTES de
+                "reservado", senão uma aula passada a que o aluno foi continua
+                a mostrar o estado de reserva, como se ainda estivesse para
+                acontecer. O servidor já recusava reservas de aulas passadas —
+                o que faltava era o aluno não ver um botão que não funciona.
+              {% endcomment %}
+              {% if s.is_past %}
+                <span class="btn-passada">Já decorreu</span>
+              {% elif s.id in my_session_ids %}
+                <span class="btn-reservado"><span class="ck">&#10003;</span> Reservado</span>
+              {% elif s.is_full %}
+                {% comment %}
+                  Esgotada deixou de ser um beco: entra-se na fila. Entrar
+                  não gasta nada — só se paga se a vaga abrir mesmo.
+                {% endcomment %}
+                {% if s.id in minhas_esperas %}
+                  <form action="{% url 'sair_lista_espera' s.id %}" method="post" class="inline-form">
+                    {% csrf_token %}
+                    <span class="btn-na-fila">Na lista de espera</span>
+                    <button type="submit" class="btn-link-sair">Sair</button>
+                  </form>
+                {% else %}
+                  <form action="{% url 'entrar_lista_espera' s.id %}" method="post" class="inline-form">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-small btn-espera">
+                      Entrar na lista de espera
+                    </button>
+                  </form>
+                {% endif %}
+              {% else %}
+                <form action="{% url 'book' s.id %}" method="post" class="inline-form book-form">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-small">Reservar</button>
+                </form>
+              {% endif %}
+            </div>
+          </div>
+        </li>

@@ -229,7 +229,20 @@ recebeu a sessão de volta, e não é uma falta.
 
 Podes corrigir sempre que quiseres: voltas a entrar e marcas outra vez.
 
-### 3.9. Apagar os dados de um aluno (quando ele pede)
+### 3.9. Instalar a app no telemóvel
+
+O site pode ficar com ícone próprio no telemóvel, como uma aplicação:
+
+- **Android (Chrome):** abre o site, menu dos três pontos →
+  *Adicionar ao ecrã principal*.
+- **iPhone (Safari):** abre o site, botão de partilha →
+  *Adicionar ao ecrã principal*.
+
+Fica um ícone verde na gaveta das aplicações e abre sem a barra do browser.
+**Vale a pena dizeres isto aos alunos** — é a diferença entre irem ao site e
+terem a app à mão.
+
+### 3.10. Apagar os dados de um aluno (quando ele pede)
 
 Um aluno tem o direito de pedir que os dados dele sejam apagados, e tu és
 obrigado a fazê-lo. É raro, mas vai acontecer um dia.
@@ -557,7 +570,7 @@ Para não andares à procura:
 - **O aluno não pode mudar a password sozinho** — tem de te pedir.
 - **O aluno não vê o histórico** das aulas que já fez, só as futuras. Tu vês
   (ver 3.7).
-- **O horário vê-se dia a dia**, não há vista de semana.
+- **Não há relatórios** de ocupação nem de faturação.
 
 Algumas destas estão planeadas. Se alguma te fizer mesmo falta no dia-a-dia,
 diz ao André — a ordem do que se faz a seguir deve ser decidida pelo que te

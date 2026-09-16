@@ -17,7 +17,13 @@
 {% comment %} Pinta a barra do browser no telemóvel de preto: sem isto fica branca e corta o tema escuro ao meio. {% endcomment %}
 <meta name="theme-color" content="#0F0F0F">
 <link rel="icon" href="{% static 'img/brand/favicon.png' %}" sizes="any">
-<link rel="apple-touch-icon" href="{% static 'img/brand/favicon.png' %}">
+<link rel="apple-touch-icon" href="{% static 'img/brand/icon-192.png' %}">
+{% comment %}
+  O manifest é o que faz o telemóvel oferecer "instalar no ecrã principal".
+  Instalada, a app abre sem a barra do browser e fica com ícone próprio na
+  gaveta de aplicações — que é como os alunos esperam usar isto.
+{% endcomment %}
+<link rel="manifest" href="{% static 'manifest.webmanifest' %}">
 
 <meta property="og:site_name" content="RESTART NOW">
 {% comment %}

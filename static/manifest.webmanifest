@@ -1,0 +1,30 @@
+{
+  "name": "RESTART NOW",
+  "short_name": "RESTART NOW",
+  "description": "Marca as tuas aulas na RESTART NOW.",
+  "lang": "pt-PT",
+  "start_url": "/horario/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0F0F0F",
+  "theme_color": "#0F0F0F",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/static/img/brand/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/img/brand/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/img/brand/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

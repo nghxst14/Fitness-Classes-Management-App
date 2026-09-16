@@ -89,5 +89,20 @@
     });
   </script>
   {% block extra_js %}{% endblock %}
+
+  <script>
+    // Regista o service worker, que é o que faz o telemóvel oferecer
+    // "instalar no ecrã principal". Ele não guarda páginas — só ficheiros
+    // estáticos (ver templates/sw.js).
+    //
+    // Falhar aqui não pode partir nada: em HTTP simples (fora de localhost)
+    // o browser recusa service workers, e a app tem de continuar a funcionar
+    // na mesma. Daí o catch vazio.
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("{% url 'service_worker' %}").catch(function () {});
+      });
+    }
+  </script>
 </body>
 </html>

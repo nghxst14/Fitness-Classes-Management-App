@@ -8,6 +8,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
+from django.views.generic import TemplateView
 
 from accounts.views import ThrottledLoginView, com_travao
 from bookings.forms import PhoneLoginForm
@@ -33,6 +34,16 @@ urlpatterns = [
         name="login",
     ),
     path("conta/logout/", auth_views.LogoutView.as_view(), name="logout"),
+    # O service worker TEM de ser servido da raiz: um worker só manda no seu
+    # próprio nível e abaixo, e a partir de /static/ não chegaria às páginas.
+    # É por isso que vive em templates/ e não em static/.
+    path(
+        "sw.js",
+        TemplateView.as_view(
+            template_name="sw.js", content_type="application/javascript"
+        ),
+        name="service_worker",
+    ),
     # Páginas da aplicação (início, horário, pacotes, marcações):
     path("", include("bookings.urls")),
 ]

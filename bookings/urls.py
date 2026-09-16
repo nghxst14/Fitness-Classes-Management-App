@@ -6,6 +6,7 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("registar/", views.signup, name="signup"),
     path("horario/", views.schedule, name="schedule"),
+    path("horario/semana/", views.schedule_semana, name="schedule_semana"),
     path("pacotes/", views.packages, name="packages"),
     path("privacidade/", views.privacidade, name="privacidade"),
     path("marcar/<int:session_id>/", views.book, name="book"),

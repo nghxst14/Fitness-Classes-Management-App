@@ -47,7 +47,7 @@ espaço para fazer bem, não licença para complicar.
 ```powershell
 venv\Scripts\activate
 python manage.py runserver          # http://127.0.0.1:8000/  (site) e /admin/
-python manage.py test accounts bookings   # 136 testes, todos a passar
+python manage.py test accounts bookings   # 145 testes, todos a passar
 python -m ruff check .                    # linter (configurado no pyproject.toml)
 ```
 As ferramentas de desenvolvimento (o **ruff**) estão no `requirements-dev.txt`,
@@ -283,6 +283,14 @@ Rotas em `bookings/urls.py`; login/logout em `config/urls.py`.
   aulas cheias. Ambas voltam ao horário **no dia da aula** (`_voltar_ao_horario`):
   o horário abre sempre em hoje, e sem isso o aluno entrava na fila de uma
   aula de quinta e ficava a olhar para "não há sessões marcadas para este dia".
+- `schedule_semana` (`/horario/semana/`, login) — sete dias a partir do dia
+  pedido, e **não** de segunda a domingo: a meio da semana, uma grelha fixa
+  gastaria metade do ecrã com dias já passados. Agrupa em memória (uma
+  consulta só) e usa os mesmos limites do dia a dia, partilhados em
+  `_janela_do_horario()` — dois sítios a decidir a mesma coisa acabariam por
+  discordar. O cartão da aula vive em `templates/partials/cartao_aula.html`,
+  usado pelas duas vistas: são quatro estados com uma ordem que importa, e
+  duplicá-los era garantir que um dia divergiam.
 - `privacidade` (`/privacidade/`) — a política. **Sem login**, de propósito:
   tem de se poder ler antes de decidir criar conta. Os dados do responsável
   vêm das definições; enquanto faltarem, a página diz que falta preencher.
@@ -485,7 +493,7 @@ permissões na ficha (só um superuser).
 
 ## 10. Testes
 
-**136 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
+**145 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
 throttle de login, normalização/registo/login por telemóvel, isolamento de
 créditos por tipo, reembolsos (cancelar sessão, apagar sessão/marcação, cancelar
 reserva), filtros e ações do admin de Sessões, coluna Telemóvel, gerador do
@@ -543,9 +551,7 @@ admin (360/390/768/1024/1400px); throttle de login; recuperação via WhatsApp;
 6. **Lembretes da aula do dia seguinte** — o que falta do canal de avisos.
    Segue o padrão já usado na lista de espera: a app junta quem avisar num
    ecrã e o Sérgio manda a mensagem pelo WhatsApp dele.
-7. **Vista semanal do horário** e **instalar no telemóvel (PWA)** — os dois
-   por fazer, nenhum bloqueia nada.
-8. **Dar acesso de administrador a mais alguém** — as regras já existem
+7. **Dar acesso de administrador a mais alguém** — as regras já existem
    (quem não é superuser não mexe em contas de admin), mas atribui-se pelo
    painel de permissões do Django, que é denso e em inglês. Se um dia for
    preciso com frequência, vale um ecrã próprio.

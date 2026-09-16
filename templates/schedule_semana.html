@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Semana — RESTART NOW{% endblock %}
+
+{% block content %}
+  <h1>Semana</h1>
+
+  <div class="day-nav">
+    {% if has_prev %}
+      <a class="day-arrow" href="?date={{ semana_anterior|date:'Y-m-d' }}"
+         aria-label="Semana anterior">&#8249;</a>
+    {% else %}
+      <span class="day-arrow day-arrow-off" aria-hidden="true">&#8249;</span>
+    {% endif %}
+    <div class="day-label">
+      {{ primeiro|date:"d/m" }} &ndash; {{ ultimo|date:"d/m/Y" }}
+    </div>
+    {% if has_next %}
+      <a class="day-arrow" href="?date={{ semana_seguinte|date:'Y-m-d' }}"
+         aria-label="Semana seguinte">&#8250;</a>
+    {% else %}
+      <span class="day-arrow day-arrow-off" aria-hidden="true">&#8250;</span>
+    {% endif %}
+  </div>
+
+  <p class="vista-troca">
+    <a href="{% url 'schedule' %}">Ver dia a dia</a>
+  </p>
+
+  {% for d in dias %}
+    <section class="semana-dia">
+      <h2 class="semana-dia-titulo">
+        {{ d.dia|date:"l, d/m" }}
+        {% if d.e_hoje %}<span class="day-today">hoje</span>{% endif %}
+      </h2>
+
+      {% if d.sessions %}
+        <ul class="card-list">
+          {% for s in d.sessions %}
+            {% include "partials/cartao_aula.html" %}
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted semana-vazio">Sem aulas.</p>
+      {% endif %}
+    </section>
+  {% endfor %}
+{% endblock %}
