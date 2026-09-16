@@ -1594,3 +1594,81 @@ class EcraDeAvisosDoSergioTests(TestCase):
         self.assertNotIn(">Todos<", filtro)
         self.assertIn("Só quem falta avisar", filtro)
         self.assertIn("Mostrar tudo", filtro)
+
+
+class PresencasTests(TestCase):
+    """
+    O ecrã onde o Sérgio marca quem veio e quem faltou.
+
+    Os estados já existiam no `Booking` desde o início, mas não havia por
+    onde lhes tocar sem abrir marcação a marcação. Faltar **não** devolve o
+    crédito (decisão do `PENDENTES.md`): é o que faz as pessoas cancelarem a
+    tempo e libertarem a vaga.
+    """
+
+    def setUp(self):
+        chefe = User.objects.create_superuser(username="chefe", password="x")
+        self.painel = Client()
+        self.painel.force_login(chefe)
+
+        servico = ServiceType.objects.create(
+            name="Aula", default_capacity=10, credit_type=CreditType.SMALL_GROUP
+        )
+        self.aula = Session.objects.create(
+            service_type=servico,
+            start=timezone.now() - timedelta(hours=2),  # já decorreu
+            duration_minutes=60, capacity=10,
+        )
+        self.ana = User.objects.create_user(
+            username="913000011", password="x", first_name="Ana", sessoes_sg=3
+        )
+        self.rui = User.objects.create_user(
+            username="913000012", password="x", first_name="Rui", sessoes_sg=3
+        )
+        self.m_ana = Booking.objects.create(session=self.aula, client=self.ana)
+        self.m_rui = Booking.objects.create(session=self.aula, client=self.rui)
+        self.url = reverse("admin:bookings_session_presencas", args=[self.aula.pk])
+
+    def test_a_pagina_lista_os_inscritos(self):
+        html = self.painel.get(self.url).content.decode()
+        self.assertIn("Ana", html)
+        self.assertIn("Rui", html)
+
+    def test_marcar_quem_veio_e_quem_faltou(self):
+        self.painel.post(self.url, {
+            f"estado_{self.m_ana.pk}": Booking.ATTENDED,
+            f"estado_{self.m_rui.pk}": Booking.NO_SHOW,
+        })
+        self.m_ana.refresh_from_db()
+        self.m_rui.refresh_from_db()
+        self.assertEqual(self.m_ana.status, Booking.ATTENDED)
+        self.assertEqual(self.m_rui.status, Booking.NO_SHOW)
+
+    def test_faltar_nao_devolve_o_credito(self):
+        antes = self.rui.sessoes_sg
+        self.painel.post(self.url, {f"estado_{self.m_rui.pk}": Booking.NO_SHOW})
+        self.rui.refresh_from_db()
+        self.assertEqual(self.rui.sessoes_sg, antes)
+
+    def test_marcar_presencas_nao_mexe_em_creditos_de_ninguem(self):
+        # Nem sequer um movimento no livro: presenças não são dinheiro.
+        antes = MovimentoCredito.objects.count()
+        self.painel.post(self.url, {
+            f"estado_{self.m_ana.pk}": Booking.ATTENDED,
+            f"estado_{self.m_rui.pk}": Booking.NO_SHOW,
+        })
+        self.assertEqual(MovimentoCredito.objects.count(), antes)
+
+    def test_quem_cancelou_nao_aparece_para_marcar(self):
+        # Cancelou a tempo e já recebeu o crédito de volta: não é uma falta.
+        self.m_rui.status = Booking.CANCELLED
+        self.m_rui.save()
+        html = self.painel.get(self.url).content.decode()
+        self.assertIn("Ana", html)
+        self.assertNotIn(f"estado_{self.m_rui.pk}", html)
+
+    def test_da_para_corrigir_uma_marcacao_errada(self):
+        self.painel.post(self.url, {f"estado_{self.m_ana.pk}": Booking.NO_SHOW})
+        self.painel.post(self.url, {f"estado_{self.m_ana.pk}": Booking.ATTENDED})
+        self.m_ana.refresh_from_db()
+        self.assertEqual(self.m_ana.status, Booking.ATTENDED)

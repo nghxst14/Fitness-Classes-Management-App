@@ -278,8 +278,71 @@ class SessionAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.reativar_view),
                 name="bookings_session_reativar",
             ),
+            path(
+                "<path:object_id>/presencas/",
+                self.admin_site.admin_view(self.presencas_view),
+                name="bookings_session_presencas",
+            ),
         ]
         return rotas + super().get_urls()
+
+    def presencas_view(self, request, object_id):
+        """
+        Marca quem veio e quem faltou, a aula toda de uma vez.
+
+        Os estados já existiam no `Booking`; o que não havia era por onde
+        lhes tocar sem abrir marcação a marcação. Quem cancelou não aparece:
+        cancelou a tempo, já recebeu o crédito de volta, e não é uma falta.
+
+        **Não mexe em créditos nenhuns.** Faltar não devolve o crédito (é o
+        que faz as pessoas cancelarem a tempo e libertarem a vaga) e vir
+        também não cobra nada — já foi cobrado ao reservar. Por isso esta
+        página não escreve no livro de movimentos: presenças não são
+        dinheiro, e misturá-las com ele só daria linhas a explicar.
+        """
+        sessao = get_object_or_404(Session, pk=object_id)
+        if not self.has_change_permission(request, sessao):
+            raise PermissionDenied
+
+        marcacoes = (
+            sessao.bookings
+            .exclude(status=Booking.CANCELLED)
+            .select_related("client")
+            .order_by("client__first_name", "client__last_name")
+        )
+
+        if request.method == "POST":
+            validos = {Booking.BOOKED, Booking.ATTENDED, Booking.NO_SHOW}
+            alterados = 0
+            for marcacao in marcacoes:
+                novo = request.POST.get(f"estado_{marcacao.pk}")
+                if novo in validos and novo != marcacao.status:
+                    marcacao.status = novo
+                    marcacao.save(update_fields=["status"])
+                    alterados += 1
+            if alterados:
+                messages.success(
+                    request, f"Presenças guardadas ({alterados} alteradas)."
+                )
+            else:
+                messages.info(request, "Não houve nada a alterar.")
+            return redirect(
+                reverse("admin:bookings_session_presencas", args=[sessao.pk])
+            )
+
+        contexto = {
+            **self.admin_site.each_context(request),
+            "title": f"Presenças — {sessao}",
+            "sessao": sessao,
+            "marcacoes": marcacoes,
+            "ESTADOS": [
+                (Booking.BOOKED, "Por marcar"),
+                (Booking.ATTENDED, "Veio"),
+                (Booking.NO_SHOW, "Faltou"),
+            ],
+            "opts": self.model._meta,
+        }
+        return render(request, "admin/bookings/session/presencas.html", contexto)
 
     def cancelar_view(self, request, object_id):
         """Cancela UMA aula (botão na ficha, com confirmação no browser)."""

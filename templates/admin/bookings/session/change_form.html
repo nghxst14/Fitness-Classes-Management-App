@@ -5,6 +5,17 @@
 {# sem gravar o resto do formulário — cancelar é um ato separado de editar. #}
 {% block submit_buttons_bottom %}
   {{ block.super }}
+  {% if original and not original.is_cancelled %}
+    {% comment %}
+      Marcar presenças é uma página à parte, não um botão de submissão: não
+      grava nada deste formulário. Fica à esquerda, separada das ações
+      destrutivas da linha de baixo.
+    {% endcomment %}
+    <div class="submit-row" style="display:flex; justify-content:flex-start;">
+      <a href="{% url 'admin:bookings_session_presencas' original.pk %}"
+         class="button">Marcar presenças</a>
+    </div>
+  {% endif %}
   {% if original %}
     {# Ações destrutivas à direita, como o Remover da barra de cima. #}
     <div class="submit-row" style="display:flex; justify-content:flex-end;">

@@ -1,0 +1,73 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+  <div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Início</a>
+    &rsaquo; <a href="{% url 'admin:bookings_session_changelist' %}">Sessões</a>
+    &rsaquo; <a href="{% url 'admin:bookings_session_change' sessao.pk %}">{{ sessao }}</a>
+    &rsaquo; Presenças
+  </div>
+{% endblock %}
+
+{% block content %}
+  <h1>Presenças</h1>
+  <p class="help">
+    {{ sessao }} — {{ sessao.spots_taken }} inscrito{{ sessao.spots_taken|pluralize }}.
+  </p>
+
+  {% if marcacoes %}
+    <form method="post">
+      {% csrf_token %}
+      <table style="width:100%; max-width:640px;">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Aluno</th>
+            {% for valor, etiqueta in ESTADOS %}
+              <th style="text-align:center; padding:0 .6rem;">{{ etiqueta }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in marcacoes %}
+            <tr>
+              <th scope="row" style="text-align:left; font-weight:600;">
+                {{ m.client }}
+              </th>
+              {% for valor, etiqueta in ESTADOS %}
+                <td style="text-align:center; padding:.4rem .6rem;">
+                  {% comment %}
+                    Um botão de rádio por estado: o Sérgio vê os três de uma
+                    vez e toca no certo. Uma lista pendente obrigava a abrir,
+                    ler e escolher — três vezes mais trabalho por aluno, num
+                    ecrã que ele usa com o telemóvel na mão no fim da aula.
+                  {% endcomment %}
+                  <label style="display:block; min-height:34px; cursor:pointer;">
+                    <input type="radio"
+                           name="estado_{{ m.pk }}"
+                           value="{{ valor }}"
+                           {% if m.status == valor %}checked{% endif %}>
+                    <span class="visually-hidden">{{ etiqueta }} — {{ m.client }}</span>
+                  </label>
+                </td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="submit-row">
+        <input type="submit" value="Guardar presenças" class="default">
+        <a href="{% url 'admin:bookings_session_change' sessao.pk %}"
+           class="closelink">Voltar à aula</a>
+      </div>
+    </form>
+
+    <p class="help" style="margin-top:1rem;">
+      Marcar uma falta <strong>não devolve</strong> o crédito — foi gasto ao
+      reservar. Quem avisa a tempo cancela a reserva e recebe-o de volta.
+    </p>
+  {% else %}
+    <p>Ninguém inscrito nesta aula.</p>
+    <p><a href="{% url 'admin:bookings_session_change' sessao.pk %}">Voltar à aula</a></p>
+  {% endif %}
+{% endblock %}

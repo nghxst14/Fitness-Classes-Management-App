@@ -1,6 +1,10 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import get_object_or_404, render
+from django.urls import path, reverse
 from django.utils import timezone
+from django.utils.html import format_html
 
 from .models import CreditType, User
 
@@ -41,7 +45,16 @@ class UserAdmin(BaseUserAdmin):
         "birth_date",
         "is_trainer",
         "is_staff",
+        "historico",
     )
+
+    @admin.display(description="Histórico")
+    def historico(self, obj):
+        """Atalho para o extrato deste aluno, a partir da lista."""
+        if obj.pk is None:
+            return "—"
+        url = reverse("admin:accounts_user_historico", args=[obj.pk])
+        return format_html('<a href="{}">ver</a>', url)
     # Permite ao Sérgio atualizar os saldos direto na lista (após pagamento).
     list_editable = ("sessoes_sg", "sessoes_pt", "sessoes_hybrid")
     list_filter = (BirthdayTodayFilter, "is_trainer", "is_staff", "is_active")
@@ -55,6 +68,48 @@ class UserAdmin(BaseUserAdmin):
         acoes = super().get_actions(request)
         acoes.pop("delete_selected", None)
         return acoes
+
+    def get_urls(self):
+        rotas = [
+            path(
+                "<path:object_id>/historico/",
+                self.admin_site.admin_view(self.historico_view),
+                name="accounts_user_historico",
+            ),
+        ]
+        return rotas + super().get_urls()
+
+    def historico_view(self, request, object_id):
+        """
+        Tudo o que é de um aluno num sítio só: saldos, extrato e aulas.
+
+        Serve para a pergunta que o Sérgio vai receber mais vezes — "comprei
+        10, fui a 3, porque é que tenho 5?". O livro de movimentos já tinha a
+        resposta desde que existe, mas espalhada por uma lista de todos os
+        alunos, onde é preciso filtrar para a encontrar.
+        """
+        aluno = get_object_or_404(User, pk=object_id)
+        if not self.has_change_permission(request, aluno):
+            raise PermissionDenied
+
+        movimentos = (
+            aluno.movimentos.select_related("session", "feito_por")
+            .order_by("-created_at")[:100]
+        )
+        marcacoes = (
+            aluno.bookings.select_related("session", "session__service_type")
+            .order_by("-session__start")[:50]
+        )
+        contexto = {
+            **self.admin_site.each_context(request),
+            "title": f"Histórico — {aluno}",
+            "aluno": aluno,
+            "saldos": aluno.saldos_creditos(),
+            "movimentos": movimentos,
+            "marcacoes": marcacoes,
+            "opts": self.model._meta,
+        }
+        return render(request, "admin/accounts/user/historico.html", contexto)
 
     # --- Quem mexe em quem ----------------------------------------------
     # Decisão de set 2026: vai haver mais do que um administrador — o André

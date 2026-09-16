@@ -1,0 +1,91 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+  <div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Início</a>
+    &rsaquo; <a href="{% url 'admin:accounts_user_changelist' %}">Utilizadores</a>
+    &rsaquo; <a href="{% url 'admin:accounts_user_change' aluno.pk %}">{{ aluno }}</a>
+    &rsaquo; Histórico
+  </div>
+{% endblock %}
+
+{% block content %}
+  <h1>{{ aluno }}</h1>
+  <p class="help">{{ aluno.username }}</p>
+
+  <h2>Sessões disponíveis agora</h2>
+  <ul>
+    {% for saldo in saldos %}
+      <li><strong>{{ saldo.quantidade }}</strong> de {{ saldo.label }}</li>
+    {% endfor %}
+  </ul>
+
+  <h2>Extrato de créditos</h2>
+  {% if movimentos %}
+    <p class="help">
+      Cada linha é uma alteração de saldo. É esta a resposta à pergunta
+      &laquo;comprei X, fui a Y, porque é que tenho Z?&raquo;.
+    </p>
+    <table style="width:100%; max-width:860px;">
+      <thead>
+        <tr>
+          <th style="text-align:left;">Quando</th>
+          <th style="text-align:left;">Motivo</th>
+          <th style="text-align:left;">Tipo</th>
+          <th style="text-align:right;">Movimento</th>
+          <th style="text-align:right;">Ficou com</th>
+          <th style="text-align:left;">Aula</th>
+          <th style="text-align:left;">Quem</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in movimentos %}
+          <tr>
+            <td>{{ m.created_at|date:"d/m/Y H:i" }}</td>
+            <td>{{ m.get_motivo_display }}</td>
+            <td>{{ m.get_credit_type_display }}</td>
+            <td style="text-align:right; font-weight:600;
+                       color:{% if m.quantidade > 0 %}#1c7430{% else %}#ba2121{% endif %};">
+              {% if m.quantidade > 0 %}+{% endif %}{{ m.quantidade }}
+            </td>
+            <td style="text-align:right;">{{ m.saldo_depois }}</td>
+            <td>{% if m.session %}{{ m.session }}{% else %}—{% endif %}</td>
+            <td>{% if m.feito_por %}{{ m.feito_por }}{% else %}automático{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>Ainda não há movimentos de créditos.</p>
+  {% endif %}
+
+  <h2>Aulas</h2>
+  {% if marcacoes %}
+    <table style="width:100%; max-width:640px;">
+      <thead>
+        <tr>
+          <th style="text-align:left;">Aula</th>
+          <th style="text-align:left;">Quando</th>
+          <th style="text-align:left;">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in marcacoes %}
+          <tr>
+            <td>{{ m.session.service_type.name }}</td>
+            <td>{{ m.session.start|date:"d/m/Y H:i" }}</td>
+            <td>{{ m.get_status_display }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>Ainda não se inscreveu em nenhuma aula.</p>
+  {% endif %}
+
+  <div class="submit-row">
+    <a href="{% url 'admin:accounts_user_change' aluno.pk %}" class="closelink">
+      Voltar à ficha
+    </a>
+  </div>
+{% endblock %}

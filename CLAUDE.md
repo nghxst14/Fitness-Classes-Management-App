@@ -47,7 +47,7 @@ espaço para fazer bem, não licença para complicar.
 ```powershell
 venv\Scripts\activate
 python manage.py runserver          # http://127.0.0.1:8000/  (site) e /admin/
-python manage.py test accounts bookings   # 125 testes, todos a passar
+python manage.py test accounts bookings   # 136 testes, todos a passar
 ```
 `makemigrations` + `migrate` só quando os modelos mudam. Ao mexer no CSS, o
 browser cacheia — usar **Ctrl+F5**. Detalhes completos em `GUIA_COMANDOS.md`.
@@ -368,6 +368,20 @@ créditos que a paga). **Nenhum caminho desta página apaga aulas**: apagar
 levaria as marcações atrás em cascata e desinscrevia toda a gente sem aviso.
 Para destruir uma aula existe o botão "Cancelar esta aula".
 
+**Presenças (`presencas_view`)** — botão **"Marcar presenças"** na ficha da
+aula, com um rádio por aluno (Por marcar / Veio / Faltou). Rádios e não uma
+lista pendente: o Sérgio usa isto com o telemóvel na mão no fim da aula, e
+uma lista obrigava a abrir-ler-escolher por pessoa. **Não mexe em créditos
+nenhuns** e não escreve no livro de movimentos — faltar não devolve o
+crédito (é o que faz cancelar a tempo) e vir já foi cobrado na reserva. Quem
+cancelou não aparece: cancelou a tempo, recebeu o crédito, não é uma falta.
+
+**Histórico do aluno (`historico_view`, em `accounts/admin.py`)** — saldos,
+extrato de créditos e aulas, numa página só, ligada da coluna "Histórico" da
+lista de Utilizadores. Existe para a pergunta que o Sérgio mais vai receber:
+"comprei 10, fui a 3, porque é que tenho 5?". Respeita a regra das contas de
+admin — o Sérgio não vê o histórico de um administrador.
+
 **Lista de espera (`ListaEsperaAdmin`)** — o ecrã **"quem falta avisar"**.
 Quando alguém sobe da fila fica inscrito sem saber: a app não manda
 mensagens, por isso esta lista é o aviso ao Sérgio. Abre já filtrada por
@@ -464,7 +478,7 @@ permissões na ficha (só um superuser).
 
 ## 10. Testes
 
-**125 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
+**136 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
 throttle de login, normalização/registo/login por telemóvel, isolamento de
 créditos por tipo, reembolsos (cancelar sessão, apagar sessão/marcação, cancelar
 reserva), filtros e ações do admin de Sessões, coluna Telemóvel, gerador do
@@ -529,10 +543,9 @@ admin (360/390/768/1024/1400px); throttle de login; recuperação via WhatsApp;
    permissões porque foi desenhado para **um** superuser. Falta decidir o
    que o Sérgio pode e não pode fazer, e dar-lhe um ecrã para isso que não
    seja o painel de permissões do Django (dezenas de checkboxes em inglês).
-8. **Ecrã de presenças e lembretes** — a **lista de espera ficou feita**
-   (set 2026). Os que faltam esbarram no mesmo: **a app não avisa ninguém**.
-   O caminho já escolhido para a lista de espera serve de padrão: a app
-   junta quem tem de ser avisado num ecrã, e o Sérgio manda a mensagem.
+8. **Lembretes da aula do dia seguinte** — o que falta do canal de avisos.
+   Segue o padrão já usado na lista de espera: a app junta quem avisar num
+   ecrã e o Sérgio manda a mensagem pelo WhatsApp dele.
 9. Mini-guia do admin para o Sérgio (formação de entrega).
 
 *(Ficaram feitos em set 2026: o **rasto dos créditos** — `MovimentoCredito`,

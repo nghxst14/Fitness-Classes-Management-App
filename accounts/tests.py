@@ -1,10 +1,16 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.core.cache import cache
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
+from bookings.models import Booking, MovimentoCredito, ServiceType, Session
+
+from .models import CreditType
 from .views import MAX_TENTATIVAS
 
 User = get_user_model()
@@ -174,3 +180,95 @@ class PermissoesDoSergioTests(TestCase):
         painel_andre.force_login(self.andre)
         url = reverse("admin:accounts_user_change", args=[self.andre.pk])
         self.assertEqual(painel_andre.get(url).status_code, 200)
+
+
+class HistoricoDoAlunoTests(TestCase):
+    """
+    A página que responde a "porque é que eu tenho 5 créditos?".
+
+    O livro de movimentos já guardava a resposta desde set 2026, mas estava
+    espalhado por uma lista geral de todos os alunos. Aqui junta-se o que é
+    de uma pessoa: os saldos, o extrato e as aulas a que foi.
+    """
+
+    def setUp(self):
+        chefe = User.objects.create_superuser(username="chefe", password="x")
+        self.painel = Client()
+        self.painel.force_login(chefe)
+
+        self.aluna = User.objects.create_user(
+            username="913000021", password="x", first_name="Ana", sessoes_sg=4
+        )
+        servico = ServiceType.objects.create(
+            name="Aula", default_capacity=10, credit_type=CreditType.SMALL_GROUP
+        )
+        self.aula = Session.objects.create(
+            service_type=servico,
+            start=timezone.now() - timedelta(days=1),
+            duration_minutes=60, capacity=10,
+        )
+        Booking.objects.create(
+            session=self.aula, client=self.aluna, status=Booking.ATTENDED
+        )
+        MovimentoCredito.objects.create(
+            client=self.aluna, credit_type=CreditType.SMALL_GROUP,
+            quantidade=5, motivo=MovimentoCredito.COMPRA, saldo_depois=5,
+        )
+        MovimentoCredito.objects.create(
+            client=self.aluna, credit_type=CreditType.SMALL_GROUP,
+            quantidade=-1, motivo=MovimentoCredito.RESERVA,
+            saldo_depois=4, session=self.aula,
+        )
+        self.url = reverse("admin:accounts_user_historico", args=[self.aluna.pk])
+
+    def test_mostra_o_extrato_de_creditos(self):
+        html = self.painel.get(self.url).content.decode()
+        self.assertIn("Créditos adicionados", html)
+        self.assertIn("Reserva de aula", html)
+
+    def test_mostra_as_aulas_do_aluno(self):
+        html = self.painel.get(self.url).content.decode()
+        self.assertIn("Compareceu", html)
+
+    def test_mostra_os_saldos_atuais(self):
+        html = self.painel.get(self.url).content.decode()
+        self.assertIn("Small Group", html)
+
+    def test_so_mostra_o_que_e_deste_aluno(self):
+        # Verifica-se o que foi para o template, não o HTML: procurar um
+        # número solto na página inteira dá falsos positivos (aparece em
+        # cores, tokens e caminhos) e o teste passaria a mentir.
+        outro = User.objects.create_user(username="913000022", password="x")
+        MovimentoCredito.objects.create(
+            client=outro, credit_type=CreditType.PT,
+            quantidade=99, motivo=MovimentoCredito.COMPRA, saldo_depois=99,
+        )
+        Booking.objects.create(session=self.aula, client=outro)
+
+        resposta = self.painel.get(self.url)
+
+        self.assertEqual(
+            {m.client_id for m in resposta.context["movimentos"]},
+            {self.aluna.pk},
+        )
+        self.assertEqual(
+            {m.client_id for m in resposta.context["marcacoes"]},
+            {self.aluna.pk},
+        )
+
+    def test_o_sergio_nao_ve_o_historico_de_um_admin(self):
+        # Mesma regra das fichas: contas de administração são fora do alcance.
+        sergio = User.objects.create_user(
+            username="913111222", password="x", is_staff=True
+        )
+        sergio.user_permissions.set(
+            Permission.objects.filter(content_type__app_label="accounts")
+        )
+        painel_sergio = Client()
+        painel_sergio.force_login(sergio)
+        andre = User.objects.create_superuser(username="andre2", password="x")
+
+        resposta = painel_sergio.get(
+            reverse("admin:accounts_user_historico", args=[andre.pk])
+        )
+        self.assertIn(resposta.status_code, (302, 403))
