@@ -49,3 +49,49 @@ class LoginThrottleTests(TestCase):
             )
         response = self._tentar("segredo1")
         self.assertRedirects(response, self.url)
+
+
+class AdminLoginThrottleTests(TestCase):
+    """
+    O /admin/login/ tem de ter o mesmo travão que o login do site.
+
+    Vai haver mais do que um administrador (manutenção + o Sérgio, e no
+    futuro outros), e a password do Sérgio será de decorar. Sem travão,
+    a porta do painel aceita tentativas a toda a velocidade.
+    """
+
+    def setUp(self):
+        cache.clear()
+        User.objects.create_superuser(username="sergio", password="segredo1")
+        self.client_http = Client()
+        self.url = "/admin/login/"
+
+    def _tentar(self, password, username="sergio"):
+        return self.client_http.post(
+            self.url, {"username": username, "password": password}
+        )
+
+    def test_bloqueia_apos_max_tentativas(self):
+        for _ in range(MAX_TENTATIVAS):
+            self._tentar("errada")
+
+        # Mesmo com a password CERTA, a tentativa seguinte tem de ser recusada.
+        self._tentar("segredo1")
+        self.assertNotIn("_auth_user_id", self.client_http.session)
+
+    def test_login_correto_antes_do_limite_funciona(self):
+        for _ in range(MAX_TENTATIVAS - 1):
+            self._tentar("errada")
+
+        self._tentar("segredo1")
+        self.assertIn("_auth_user_id", self.client_http.session)
+
+    def test_tentativas_somam_entre_o_site_e_o_admin(self):
+        # Alternar entre as duas portas não pode dar o dobro das tentativas.
+        for _ in range(MAX_TENTATIVAS):
+            self.client_http.post(
+                reverse("login"), {"username": "sergio", "password": "errada"}
+            )
+
+        self._tentar("segredo1")
+        self.assertNotIn("_auth_user_id", self.client_http.session)

@@ -27,6 +27,7 @@ def home(request):
     upcoming = (
         Session.objects.filter(start__gte=timezone.now(), is_cancelled=False)
         .select_related("service_type", "location")
+        .com_inscritos()
         .order_by("start")[:6]
     )
     return render(request, "home.html", {"upcoming": upcoming})
@@ -71,6 +72,7 @@ def schedule(request):
     sessions = (
         Session.objects.filter(start__date=day, is_cancelled=False)
         .select_related("service_type", "location")
+        .com_inscritos()
         .order_by("start")
     )
     my_session_ids = set(
@@ -270,3 +272,21 @@ def packages(request):
         )
         items.append({"pack": pack, "wa_url": f"https://wa.me/{number}?text={quote(msg)}"})
     return render(request, "packages.html", {"items": items})
+
+
+def privacidade(request):
+    """
+    A política de privacidade.
+
+    Sem `login_required` de propósito: tem de se poder ler **antes** de
+    decidir criar conta, senão o consentimento pedido no registo seria a
+    aceitar um texto que não se podia ver.
+
+    Os dados do responsável vêm das definições porque só o Sérgio os pode
+    dar; enquanto faltarem, a página di-lo em vez de fingir que está pronta.
+    """
+    return render(request, "privacidade.html", {
+        "responsavel": settings.RGPD_RESPONSAVEL,
+        "contacto": settings.RGPD_CONTACTO,
+        "prazo_anos": settings.RGPD_PRAZO_ANOS,
+    })

@@ -45,6 +45,16 @@ $env:DJANGO_DEBUG = "False"
 $env:DJANGO_ALLOWED_HOSTS = ".trycloudflare.com,127.0.0.1,localhost"
 $env:DJANGO_CSRF_TRUSTED_ORIGINS = "https://*.trycloudflare.com"
 
+# Com DEBUG=False o settings.py EXIGE estas variaveis e recusa arrancar sem
+# elas (de proposito: em producao, esquece-las seria mandar os alunos para o
+# numero errado ou publicar uma politica de privacidade sem responsavel).
+# Numa demonstracao nao ha nenhum mal em valores de exemplo - o que nao pode
+# e o script rebentar. Os valores a serio vivem nas variaveis do Railway.
+$env:SERGIO_WHATSAPP = "351939339857"          # numero de TESTE do Andre
+$env:RGPD_RESPONSAVEL = "RESTART NOW (demonstracao)"
+$env:RGPD_CONTACTO = "a definir com o Sergio"
+$env:RGPD_PRAZO_ANOS = "3"
+
 function Parar-Tudo {
   Get-Process cloudflared -ErrorAction SilentlyContinue | Stop-Process -Force
   $c = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue

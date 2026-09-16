@@ -40,10 +40,52 @@ confirma na demonstração.
   código (marcar falta não devolve nada).
 - **Créditos expiram?** Assumido que não, como está hoje.
 
+## Decidir ANTES de construir: por onde é que a app avisa o aluno
+
+Levantado em set 2026, ao planear a lista de espera, as presenças e os
+lembretes. **A app não tem forma de ir ter com ninguém**: não há email (foi
+dispensado de propósito), não há WhatsApp na app (decisão fechada) e não há
+notificações. Ela só fala com o aluno quando ele abre o site.
+
+Isto trava duas das três coisas pedidas:
+
+- **Lista de espera** — abre uma vaga às 22h, a app inscreve o próximo e
+  gasta-lhe um crédito. Ele só descobre se abrir o site; se não abrir, falta
+  a uma aula que não sabia que tinha e perde o crédito.
+- **Lembretes** — um lembrete é, por definição, ir ter com a pessoa. Sem
+  canal, seria um aviso no site que ela só vê se lá for.
+
+Saídas em aberto (por decidir com o André):
+1. **O Sérgio avisa pelo WhatsApp**, a partir de um ecrã que lhe diz quem
+   avisar. Mantém o toque pessoal, que é o negócio dele, e não precisa de
+   infraestrutura nenhuma.
+2. **Janela de confirmação** na lista de espera: a vaga fica reservada X
+   horas à espera que o aluno confirme, em vez de o inscrever logo.
+
+## Contas de administração (set 2026)
+
+Decisão do André: vai haver **dois** administradores — ele para manutenção e
+o Sérgio como administrador prático — e, mais tarde, um admin poderá dar
+acesso a outro utilizador.
+
+O que falta desenhar (o código assume hoje **um** superuser, e o
+`accounts/admin.py` esconde grupos e permissões por causa disso):
+- o que o Sérgio **pode** e **não pode** fazer (dar créditos e cancelar aulas,
+  de certeza; apagar alunos? mudar passwords? criar outros admins?);
+- um ecrã para atribuir esse acesso que não seja o painel de permissões do
+  Django — dezenas de checkboxes técnicas em inglês, o oposto de simples.
+
 ## Outros pendentes
 
 - **Trocar `SERGIO_WHATSAPP`** em `config/settings.py` pelo número real do
   Sérgio (agora está o número de teste do André).
+- **Dados da política de privacidade (RGPD)** — as variáveis
+  `RGPD_RESPONSAVEL`, `RGPD_CONTACTO` e `RGPD_PRAZO_ANOS`. **Só o Sérgio as
+  pode dar** (é ele o responsável legal pelos dados dos alunos) e a app
+  recusa arrancar em produção sem elas. É a pergunta 7 do
+  `REUNIAO-SERGIO.md`: como se identifica legalmente, para onde escrevem os
+  alunos a pedir os dados ou o apagamento, e quanto tempo os guarda depois
+  de alguém deixar de ser aluno.
 - **Deploy (Bloco 5)**: Railway ou PythonAnywhere; PostgreSQL; `DEBUG=False`;
   whitenoise; e rever o throttle do login (atrás de proxy, o `REMOTE_ADDR`
   passa a ser o IP do proxy — usar o cabeçalho correto).

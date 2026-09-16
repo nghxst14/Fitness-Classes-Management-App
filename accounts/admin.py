@@ -110,9 +110,22 @@ class UserAdmin(BaseUserAdmin):
             "Permissões",
             {"fields": ("is_trainer", "is_active", "is_staff", "is_superuser")},
         ),
-        ("Datas", {"fields": ("last_login", "date_joined", "created_at")}),
+        (
+            "Datas",
+            {
+                "fields": (
+                    "last_login", "date_joined", "created_at", "consentimento_em",
+                ),
+                "description": (
+                    "A data do consentimento é a prova de que o aluno aceitou "
+                    "a política de privacidade no registo. É só de leitura: "
+                    "uma prova que se pode escrever à mão não prova nada. "
+                    "Vazia nas contas criadas aqui no painel."
+                ),
+            },
+        ),
     )
-    readonly_fields = ("created_at",)
+    readonly_fields = ("created_at", "consentimento_em")
 
     add_fieldsets = (
         (

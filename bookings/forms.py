@@ -3,6 +3,9 @@ import re
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.safestring import mark_safe
 
 User = get_user_model()
 
@@ -45,6 +48,17 @@ class SignUpForm(UserCreationForm):
         label="Data de nascimento",
         widget=forms.DateInput(attrs={"type": "date", "autocomplete": "bday"}),
     )
+    # O RGPD exige consentimento antes de guardar dados pessoais, e que ele
+    # seja um ato deliberado: por isso a caixa nasce vazia e é obrigatória.
+    # Pré-marcá-la não valeria como consentimento.
+    aceita_privacidade = forms.BooleanField(
+        label="Li e aceito a política de privacidade",
+        required=True,
+        error_messages={
+            "required": "Para criares conta tens de aceitar a política de "
+                        "privacidade."
+        },
+    )
 
     class Meta(UserCreationForm.Meta):
         # Herdar do Meta do UserCreationForm traz o
@@ -63,6 +77,17 @@ class SignUpForm(UserCreationForm):
         self.fields["username"].widget.attrs.update(
             {"inputmode": "tel", "placeholder": "9xxxxxxxx"}
         )
+        # O rótulo leva o link para a política: pedir que a aceitem sem dar
+        # como a ler seria consentimento só no nome. Abre noutro separador
+        # para não perder o que já foi escrito no formulário. O reverse() dá
+        # um endereço nosso, por isso o mark_safe não introduz risco.
+        self.fields["aceita_privacidade"].label = mark_safe(
+            'Li e aceito a <a href="%s" target="_blank" rel="noopener">'
+            "política de privacidade</a>" % reverse("privacidade")
+        )
+        # Sem os dois pontos do fim: os outros campos rotulam uma caixa que se
+        # preenche ("Nome:"), este é uma frase que se aceita.
+        self.fields["aceita_privacidade"].label_suffix = ""
 
     def clean_username(self):
         """Normaliza e valida o telemóvel (9 dígitos, a começar por 9)."""
@@ -84,6 +109,8 @@ class SignUpForm(UserCreationForm):
         user.first_name = self.cleaned_data["first_name"]
         user.last_name = self.cleaned_data["last_name"]
         user.birth_date = self.cleaned_data["birth_date"]
+        # Guarda QUANDO aceitou: é a prova do consentimento.
+        user.consentimento_em = timezone.now()
         if commit:
             user.save()
         return user

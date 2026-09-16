@@ -195,6 +195,36 @@ class SessionAdmin(admin.ModelAdmin):
         "inscritos",
         "estado",
     )
+
+    def get_queryset(self, request):
+        """
+        Traz o tipo, o local e a contagem de inscritos na mesma consulta.
+
+        Este ecrã mostra 100 aulas de cada vez e cada linha tem a coluna
+        "Inscritos": sem isto era uma ida à base de dados por linha, só para
+        escrever "3 / 12".
+        """
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("service_type", "location")
+            .com_inscritos()
+        )
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """
+        Congela as opções dos menus da lista editável numa lista.
+
+        O `list_editable` põe um menu de Tipo e outro de Local em **cada**
+        linha. O campo é o mesmo para todas, mas desenhá-lo vai buscar as
+        opções à base de dados de cada vez — outra consulta por linha, e
+        desta vez só para escrever os mesmos três tipos e quatro locais 100
+        vezes. Avaliadas uma vez aqui, todas as linhas reutilizam a lista.
+        """
+        campo = super().formfield_for_foreignkey(db_field, request, **kwargs)
+        if db_field.name in ("service_type", "location"):
+            campo.choices = list(campo.choices)
+        return campo
     # Editar na própria lista: o programa semanal é o molde, mas há sempre o
     # imprevisto de última hora (a aula de amanhã muda de local). Assim o
     # Sérgio corrige várias de uma vez e grava uma só. A hora fica de fora de

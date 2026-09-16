@@ -54,6 +54,17 @@ class User(AbstractUser):
         help_text="Marca esta opção para quem dá aulas/sessões.",
     )
     created_at = models.DateTimeField("Criado em", auto_now_add=True)
+    consentimento_em = models.DateTimeField(
+        "Aceitou a política de privacidade em",
+        null=True,
+        blank=True,
+        help_text=(
+            "Quando o aluno aceitou a política, no registo. É a prova de "
+            "consentimento que o RGPD exige — dizer que ele aceitou não "
+            "chega, é preciso poder mostrar quando. Vazio nas contas "
+            "criadas no painel (ex.: staff) e nas anteriores a isto existir."
+        ),
+    )
 
     class Meta:
         verbose_name = "Utilizador"

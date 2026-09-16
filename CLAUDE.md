@@ -174,7 +174,8 @@ Estas decisões vieram de reuniões com o Sérgio e **substituem** ideias antiga
 
 **`accounts.User(AbstractUser)`** — `username` = telemóvel. Campos extra:
 `birth_date`, `sessoes_sg`, `sessoes_pt`, `sessoes_hybrid`, `is_trainer`,
-`created_at`. Propriedade `phone` (= username); helpers `campo_saldo(tipo)`,
+`created_at`, `consentimento_em` (quando aceitou a política de privacidade,
+no registo — é a prova exigida pelo RGPD; vazio nas contas criadas no admin). Propriedade `phone` (= username); helpers `campo_saldo(tipo)`,
 `creditos_de(tipo)`, `saldos_creditos()`. `__str__` = nome completo ou username.
 
 **`bookings.Location`** — `name`, `kind` (`indoor`/`outdoor`), `address`,
@@ -260,6 +261,9 @@ Rotas em `bookings/urls.py`; login/logout em `config/urls.py`.
   cancela com UPDATE condicional (evita devolver 2× em duplo-clique) e devolve
   1 crédito ao balde certo.
 - `packages` (`/pacotes/`, login) — packs ativos + link `wa.me` preenchido.
+- `privacidade` (`/privacidade/`) — a política. **Sem login**, de propósito:
+  tem de se poder ler antes de decidir criar conta. Os dados do responsável
+  vêm das definições; enquanto faltarem, a página diz que falta preencher.
 
 **Concorrência:** reservar/cancelar usam UPDATE condicional atómico e
 `select_for_update`, à prova de duplo-clique / duas abas / última vaga.
@@ -372,10 +376,24 @@ permissões na ficha (só um superuser).
   views de admin verificam permissões). Corrigida **1 XSS armazenada**: o nome do
   aluno ia num `onclick` da coluna Telemóvel e podia injetar JS no painel do
   Sérgio — agora vai em `data-nome` e é lido com `this.dataset.nome`.
-- **Gap conhecido:** o login do **admin** (`/admin/login/`) **não** passa pelo
-  `ThrottledLoginView` (só o `/conta/login/` do site tem throttle) — a conta
-  superuser não está protegida contra força bruta. Mitigar no deploy (password
-  forte + não usar username "admin"; ou throttle/limite de IP no `/admin/`).
+- **Travão também no `/admin/login/`** (set 2026). A rota está declarada em
+  `config/urls.py` **antes** do `admin.site.urls` para ganhar o pedido, e usa
+  `com_travao()` (em `accounts/views.py`), que envolve a view de login do
+  admin em vez de a reescrever — ela tem template e contexto próprios. A
+  contagem usa a **mesma chave** do login do site, de propósito: as duas
+  portas dão à mesma conta e alternar entre elas não pode render o dobro das
+  tentativas. Vai passar a haver mais do que um administrador (ver secção 11).
+- **Gap que fica:** a cache do throttle é a de memória do processo. Num
+  deploy com vários workers, cada um conta as suas tentativas; e um redeploy
+  limpa tudo. Resolve-se apontando `CACHES` para Redis ou para a tabela de
+  cache do Django.
+- **RGPD** (set 2026): política em `/privacidade/` (aberta a quem não tem
+  conta — tem de se poder ler antes de aceitar), consentimento obrigatório no
+  registo com a data guardada em `User.consentimento_em` (a prova; só de
+  leitura no admin), e o apagamento de um utilizador leva marcações e
+  movimentos em cascata. Os dados do responsável vêm de `RGPD_RESPONSAVEL`,
+  `RGPD_CONTACTO` e `RGPD_PRAZO_ANOS`, **obrigatórias em produção** — a app
+  recusa arrancar sem elas, como já fazia com o `SERGIO_WHATSAPP`.
 - O `settings.py` **já está preparado para produção**: bloco `if not DEBUG` com
   `SECURE_SSL_REDIRECT`, cookies seguros, HSTS, `SECURE_PROXY_SSL_HEADER`;
   WhiteNoise; PostgreSQL via `DATABASE_URL`; `CSRF_TRUSTED_ORIGINS`. O
@@ -422,7 +440,7 @@ permissões na ficha (só um superuser).
 
 ## 10. Testes
 
-**85 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
+**99 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
 throttle de login, normalização/registo/login por telemóvel, isolamento de
 créditos por tipo, reembolsos (cancelar sessão, apagar sessão/marcação, cancelar
 reserva), filtros e ações do admin de Sessões, coluna Telemóvel, gerador do
@@ -430,8 +448,14 @@ programa semanal (inc. não-duplicar, ajustes aplicados à aula e não ao molde,
 atualizar sem perder inscrições, e as recusas de lotação e de tipo), limites de
 navegação do horário, imagem do cartão, o widget de hora, aulas passadas sem
 botão de reservar, etiquetas de partilha, preços escondidos e autofill do
-registo. Correr sempre `manage.py test accounts bookings` antes de commitar
-mudanças de lógica.
+registo, o travão do login do admin, o consentimento de privacidade e o
+apagamento de dados, e o número de consultas por ecrã. Correr sempre
+`manage.py test accounts bookings` antes de commitar mudanças de lógica.
+
+**Testes de consultas (`ConsultasPorEcraTests`)** — comparam o mesmo ecrã com
+poucas e com muitas aulas e exigem o **mesmo** número de consultas. Comparar
+em vez de fixar um número evita um teste que parte sempre que se acrescenta
+uma consulta inofensiva; o que ele protege é o N+1 não voltar.
 
 ---
 
@@ -471,17 +495,27 @@ admin (360/390/768/1024/1400px); throttle de login; recuperação via WhatsApp;
    superuser **`claude-preview`**, os 12 alunos com `(demo)` no apelido, a
    conta `912000000`, e as aulas com `DEMO - apagar antes do deploy` no campo
    de notas.
-6. **Cópias de segurança, RGPD, monitorização de erros e páginas 404/500** —
-   nenhuma existe. Todas bloqueiam um lançamento a sério.
-7. **Travão no login do `/admin/`** e a cache do throttle (hoje em memória do
-   processo, não sobrevive a um deploy nem a mais do que um worker).
-8. **N+1 nas contagens de inscritos** — 2 queries por aula no horário
-   (24 para 10 aulas) e até 209 no ecrã do admin. Resolve-se com um
-   `annotate(Count(...))` na consulta.
+6. **Cache do throttle de login** — hoje em memória do processo: não
+   sobrevive a um deploy nem a mais do que um worker do gunicorn. O travão
+   em si já existe nas duas portas (site e `/admin/`); o que falta é a
+   contagem viver fora do processo (Redis, ou a tabela de cache do Django).
+7. **Dois ou mais administradores** (set 2026, decisão do André): o André
+   para manutenção, o Sérgio como administrador prático, e mais tarde poder
+   dar-se acesso a outros. O `accounts/admin.py` ainda esconde grupos e
+   permissões porque foi desenhado para **um** superuser. Falta decidir o
+   que o Sérgio pode e não pode fazer, e dar-lhe um ecrã para isso que não
+   seja o painel de permissões do Django (dezenas de checkboxes em inglês).
+8. **Lista de espera, ecrã de presenças e lembretes** — pedidos pelo André
+   em set 2026. Os três esbarram no mesmo: **a app não tem como avisar
+   ninguém** (sem email, sem WhatsApp na app, sem notificações). Decidir o
+   canal ANTES de construir — ver `PENDENTES.md`.
 9. Mini-guia do admin para o Sérgio (formação de entrega).
 
-*(O **rasto dos créditos**, que era a maior lacuna conhecida, ficou feito em
-set 2026 — ver `MovimentoCredito` na secção 5.)*
+*(Ficaram feitos em set 2026: o **rasto dos créditos** — `MovimentoCredito`,
+secção 5; as **cópias de segurança** — `scripts/backup.ps1`; as **páginas de
+erro** e o **registo de erros** — `templates/404.html`, `500.html`, `LOGGING`;
+o **travão no login do admin** e o **N+1 das contagens** — ver abaixo; e a
+**base do RGPD** — política, consentimento e apagamento.)*
 
 **Decisões fechadas (não fazer):** sem lembrete automático de aniversários (só
 o filtro manual "Faz anos hoje"); sem pagamentos online; sem integração de

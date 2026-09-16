@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Política de privacidade — RESTART NOW{% endblock %}
+
+{% block content %}
+  <h1>Política de privacidade</h1>
+
+  {% if not responsavel or not contacto or not prazo_anos %}
+    {% comment %}
+      Aviso deliberadamente visível: em desenvolvimento estes dados ainda não
+      existem (só o Sérgio os pode dar). Em produção a app nem sequer arranca
+      sem eles — ver o bloco RGPD no settings.py.
+    {% endcomment %}
+    <p class="aviso-rgpd">
+      <strong>Falta preencher.</strong> Esta página ainda não tem o
+      responsável, o contacto e o prazo de conservação. São dados que o
+      Sérgio tem de fornecer antes de o site ir para o ar.
+    </p>
+  {% endif %}
+
+  <p class="muted">
+    Esta página explica que dados guardamos sobre ti, para que servem e o que
+    podes fazer em relação a eles.
+  </p>
+
+  <h2>Quem é responsável</h2>
+  <p>
+    {% if responsavel %}{{ responsavel }}{% else %}
+      <em>[por preencher: nome ou entidade do Sérgio]</em>
+    {% endif %},
+    que gere a RESTART NOW e é quem decide o que é feito com estes dados.
+  </p>
+
+  <h2>Que dados guardamos</h2>
+  <ul>
+    <li><strong>Nome e apelido</strong> — para o treinador saber quem está inscrito em cada aula.</li>
+    <li><strong>Número de telemóvel</strong> — é o teu identificador de entrada na app e a forma de o treinador falar contigo.</li>
+    <li><strong>Data de nascimento</strong> — para o treinador saber os aniversários dos alunos.</li>
+    <li><strong>As tuas marcações</strong> — que aulas reservaste, cancelaste ou a que foste.</li>
+    <li><strong>Os teus créditos</strong> — o saldo e o registo de cada vez que ele muda (quando compras, reservas ou cancelas).</li>
+  </ul>
+  <p class="muted">
+    Não pedimos email, não guardamos dados de pagamento (os pagamentos são
+    tratados fora da app, diretamente com o treinador) e não há publicidade
+    nem partilha dos teus dados com outras empresas.
+  </p>
+
+  <h2>Porque é que os guardamos</h2>
+  <p>
+    Para te dar o serviço que pediste: marcar aulas, saber quantas sessões
+    tens e manter o registo do que foi comprado e usado. O registo dos
+    créditos existe também para te proteger — é o que permite mostrar, a
+    qualquer momento, porque é que o teu saldo é o que é.
+  </p>
+
+  <h2>Durante quanto tempo</h2>
+  <p>
+    Enquanto fores aluno, e depois disso durante
+    {% if prazo_anos %}{{ prazo_anos }} ano{{ prazo_anos|pluralize }}{% else %}
+      <em>[por preencher: quantos anos]</em>
+    {% endif %}.
+    Passado esse tempo, os dados são apagados.
+  </p>
+
+  <h2>Os teus direitos</h2>
+  <p>Podes, a qualquer momento:</p>
+  <ul>
+    <li>pedir para <strong>ver</strong> os dados que temos sobre ti;</li>
+    <li>pedir para <strong>corrigir</strong> o que estiver errado;</li>
+    <li>pedir para <strong>apagar</strong> a tua conta e os teus dados.</li>
+  </ul>
+  <p>
+    Para qualquer um destes pedidos, fala com
+    {% if contacto %}<strong>{{ contacto }}</strong>{% else %}
+      <em>[por preencher: email ou telemóvel de contacto]</em>
+    {% endif %}.
+  </p>
+  <p class="muted">
+    Se apagares a conta, perdes o registo dos créditos que ainda tenhas por
+    usar — por isso vale a pena falar com o treinador antes.
+  </p>
+
+  <h2>Quem tem acesso</h2>
+  <p>
+    Só o treinador e quem ele autorizar a gerir a aplicação. Os teus dados
+    ficam guardados no servidor onde a aplicação corre e não são vendidos nem
+    cedidos a ninguém.
+  </p>
+
+  <h2>Se não concordares com alguma coisa</h2>
+  <p>
+    Fala primeiro connosco. Se ainda assim entenderes que os teus dados não
+    estão a ser bem tratados, podes apresentar queixa à
+    <strong>Comissão Nacional de Proteção de Dados</strong> (CNPD),
+    a autoridade portuguesa para estes assuntos.
+  </p>
+{% endblock %}

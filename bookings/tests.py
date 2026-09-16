@@ -1,10 +1,13 @@
+import re
 from datetime import datetime, time, timedelta
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db import connection
 from django.test import Client, TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -244,6 +247,9 @@ class PhoneNormalizationTests(TestCase):
             "birth_date": "1990-05-01",
             "password1": "segredo1",
             "password2": "segredo1",
+            # Obrigatório desde que há política de privacidade (ver
+            # PrivacidadeTests): sem isto o registo é recusado.
+            "aceita_privacidade": True,
         }
 
     def test_registo_normaliza_o_numero(self):
@@ -803,6 +809,7 @@ class AutofillRegistoTests(TestCase):
             "username": "913000009", "first_name": "Ana", "last_name": "Teste",
             "birth_date": "1990-05-04",
             "password1": "segredo123", "password2": "segredo123",
+            "aceita_privacidade": "on",
         })
         self.assertRedirects(resposta, reverse("schedule"))
         self.assertTrue(User.objects.filter(username="913000009").exists())
@@ -1121,3 +1128,218 @@ class PaginasDeErroTests(TestCase):
         # Autónoma: sem herança e sem ficheiros externos.
         self.assertNotIn("{% extends", html)
         self.assertNotIn("/static/", html)
+
+
+class ConsultasPorEcraTests(TestCase):
+    """
+    O número de consultas à base de dados não pode crescer com o número de
+    aulas no ecrã.
+
+    Cada aula mostra "X / Y inscritos", e contar inscritos aula a aula é uma
+    ida à base de dados por aula (o chamado N+1). Em SQLite local não se
+    nota; em produção a base de dados está noutra máquina e cada ida é uma
+    viagem pela rede.
+
+    Os testes comparam o mesmo ecrã com poucas e com muitas aulas: o número
+    de consultas tem de ser igual. Comparar em vez de fixar um número evita
+    um teste que parte sempre que se acrescenta uma consulta inofensiva.
+    """
+
+    def setUp(self):
+        self.service = ServiceType.objects.create(name="Aula", default_capacity=10)
+        self.student = User.objects.create_user(username="912345678", password="x")
+        self.client_http = Client()
+        self.client_http.force_login(self.student)
+
+    def _povoar(self, quantas, quando):
+        Session.objects.all().delete()
+        for i in range(quantas):
+            Session.objects.create(
+                service_type=self.service,
+                start=quando + timedelta(minutes=i * 30),
+                duration_minutes=60,
+                capacity=10,
+            )
+
+    def _consultas(self, url, quantas_aulas, quando, dados=None):
+        self._povoar(quantas_aulas, quando)
+        with CaptureQueriesContext(connection) as capturadas:
+            self.client_http.get(url, dados or {})
+        return len(capturadas)
+
+    def test_horario_nao_consulta_por_aula(self):
+        amanha = timezone.now() + timedelta(days=1)
+        dia = {"date": timezone.localtime(amanha).strftime("%Y-%m-%d")}
+        url = reverse("schedule")
+
+        poucas = self._consultas(url, 2, amanha, dia)
+        muitas = self._consultas(url, 12, amanha, dia)
+
+        self.assertEqual(
+            poucas, muitas,
+            f"O horário fez {poucas} consultas com 2 aulas e {muitas} com 12: "
+            "está a contar os inscritos aula a aula.",
+        )
+
+    def test_pagina_inicial_nao_consulta_por_aula(self):
+        amanha = timezone.now() + timedelta(days=1)
+        url = reverse("home")
+
+        poucas = self._consultas(url, 2, amanha)
+        muitas = self._consultas(url, 12, amanha)
+
+        self.assertEqual(
+            poucas, muitas,
+            f"A página inicial fez {poucas} consultas com 2 aulas e {muitas} "
+            "com 12.",
+        )
+
+    def test_lista_de_sessoes_do_admin_nao_consulta_por_aula(self):
+        chefe = User.objects.create_superuser(username="chefe", password="x")
+        painel = Client()
+        painel.force_login(chefe)
+        amanha = timezone.now() + timedelta(days=1)
+        url = reverse("admin:bookings_session_changelist")
+
+        self._povoar(2, amanha)
+        with CaptureQueriesContext(connection) as poucas:
+            painel.get(url)
+
+        self._povoar(12, amanha)
+        with CaptureQueriesContext(connection) as muitas:
+            painel.get(url)
+
+        self.assertEqual(
+            len(poucas), len(muitas),
+            f"O admin fez {len(poucas)} consultas com 2 aulas e {len(muitas)} "
+            "com 12: a coluna Inscritos está a contar linha a linha.",
+        )
+
+
+class PrivacidadeTests(TestCase):
+    """
+    RGPD. A app guarda nome, telemóvel e data de nascimento de pessoas reais,
+    o que faz dela um tratamento de dados pessoais. O responsável legal é o
+    Sérgio (é o negócio dele); o que nos cabe é a ferramenta em condições:
+    dizer o que é guardado, pedir consentimento antes de guardar e conseguir
+    apagar tudo de quem o pedir.
+    """
+
+    def _dados(self, **extra):
+        dados = {
+            "username": "913000009",
+            "first_name": "Ana",
+            "last_name": "Exemplo",
+            "birth_date": "1990-05-04",
+            "password1": "segredo123",
+            "password2": "segredo123",
+        }
+        dados.update(extra)
+        return dados
+
+    def test_a_politica_abre_sem_ser_preciso_ter_conta(self):
+        # Tem de se poder ler ANTES de decidir criar conta.
+        resposta = self.client.get(reverse("privacidade"))
+        self.assertEqual(resposta.status_code, 200)
+
+    def test_registo_sem_aceitar_a_politica_e_recusado(self):
+        resposta = self.client.post(reverse("signup"), self._dados())
+
+        self.assertEqual(resposta.status_code, 200)  # volta ao formulário
+        self.assertFalse(User.objects.filter(username="913000009").exists())
+
+    def test_registo_guarda_quando_a_politica_foi_aceite(self):
+        # A prova de consentimento é a data: sem ela não há como mostrar que
+        # o aluno aceitou.
+        antes = timezone.now()
+        resposta = self.client.post(
+            reverse("signup"), self._dados(aceita_privacidade="on")
+        )
+
+        self.assertRedirects(resposta, reverse("schedule"))
+        aluno = User.objects.get(username="913000009")
+        self.assertIsNotNone(aluno.consentimento_em)
+        self.assertGreaterEqual(aluno.consentimento_em, antes)
+
+    def test_paginas_do_site_apontam_para_a_politica(self):
+        resposta = self.client.get(reverse("home"))
+        self.assertContains(resposta, reverse("privacidade"))
+
+    def test_apagar_um_aluno_leva_tudo_o_que_e_dele(self):
+        # Direito ao apagamento: não podem sobrar dados dele para trás.
+        aluno = User.objects.create_user(username="913000010", password="x")
+        servico = ServiceType.objects.create(name="Aula", default_capacity=10)
+        aula = Session.objects.create(
+            service_type=servico,
+            start=timezone.now() + timedelta(days=1),
+            duration_minutes=60, capacity=10,
+        )
+        Booking.objects.create(session=aula, client=aluno)
+        MovimentoCredito.objects.create(
+            client=aluno, credit_type=CreditType.SMALL_GROUP,
+            quantidade=5, motivo=MovimentoCredito.COMPRA, saldo_depois=5,
+        )
+
+        aluno.delete()
+
+        self.assertFalse(Booking.objects.filter(client_id=aluno.pk).exists())
+        self.assertFalse(MovimentoCredito.objects.filter(client_id=aluno.pk).exists())
+        # A aula em si não desaparece: é do Sérgio, não do aluno.
+        self.assertTrue(Session.objects.filter(pk=aula.pk).exists())
+
+
+class ListaEditavelDoAdminTests(TestCase):
+    """
+    Os menus de Tipo e Local na lista de Sessões continuam completos.
+
+    A lista congela as opções destes menus numa lista, para não repetir a
+    consulta em cada linha. Se isso alguma vez as esvaziar ou truncar, o
+    Sérgio perde a edição em linha — e perderia em silêncio, porque a página
+    continuaria a abrir na mesma.
+    """
+
+    def setUp(self):
+        chefe = User.objects.create_superuser(username="chefe", password="x")
+        self.painel = Client()
+        self.painel.force_login(chefe)
+        self.tipos = [
+            ServiceType.objects.create(name=f"Tipo {i}", default_capacity=10)
+            for i in range(3)
+        ]
+        self.locais = [
+            Location.objects.create(name=f"Local {i}") for i in range(4)
+        ]
+        Session.objects.create(
+            service_type=self.tipos[0],
+            start=timezone.now() + timedelta(days=1),
+            duration_minutes=60, capacity=10,
+        )
+
+    def _opcoes_do_menu(self, html, campo):
+        """
+        Os textos das opções do menu daquele campo, na 1.ª linha da lista.
+
+        Tem de se olhar para DENTRO do <select>: os nomes dos tipos e dos
+        locais também aparecem na coluna da tabela e nos filtros laterais,
+        e procurá-los no html inteiro daria um teste que passa mesmo com os
+        menus vazios.
+        """
+        select = re.search(
+            rf'<select[^>]*name="form-0-{campo}"[^>]*>(.*?)</select>',
+            html,
+            re.S,
+        )
+        self.assertIsNotNone(select, f"não há menu de {campo} na lista")
+        return re.findall(r"<option[^>]*>([^<]*)</option>", select.group(1))
+
+    def test_menus_da_lista_trazem_todas_as_opcoes(self):
+        resposta = self.painel.get(reverse("admin:bookings_session_changelist"))
+        html = resposta.content.decode()
+
+        tipos = self._opcoes_do_menu(html, "service_type")
+        locais = self._opcoes_do_menu(html, "location")
+
+        for tipo in self.tipos:
+            self.assertIn(tipo.name, tipos, f"falta o tipo {tipo.name} no menu")
+        for local in self.locais:
+            self.assertIn(local.name, locais, f"falta o local {local.name} no menu")

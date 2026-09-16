@@ -56,10 +56,19 @@ adiciona estas (ver também `.env.example`):
 | `DJANGO_ALLOWED_HOSTS` | o domínio que o Railway te der (ex.: `nome.up.railway.app`) |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | o mesmo domínio com `https://` à frente |
 | `SERGIO_WHATSAPP` | o número real do Sérgio (ex.: `351XXXXXXXXX`) |
+| `RGPD_RESPONSAVEL` | nome ou entidade do Sérgio, como se identifica legalmente |
+| `RGPD_CONTACTO` | email ou telemóvel para pedidos sobre dados pessoais |
+| `RGPD_PRAZO_ANOS` | anos que guarda os dados de quem deixa de ser aluno (ex.: `3`) |
 
 > O domínio: em *Settings → Networking → Generate Domain*. Depois de o gerar,
 > volta às Variables e mete-o nas duas variáveis de host acima. **Guarda e
 > deixa fazer o redeploy.**
+
+> **As três variáveis `RGPD_*` têm de vir do Sérgio.** A app recusa arrancar
+> sem elas, de propósito: uma política de privacidade publicada sem
+> responsável nem contacto não é uma política, e quem responde legalmente
+> pelos dados dos alunos é ele. Se ainda não as tiveres, o deploy fica à
+> espera — é a pergunta 7 do `REUNIAO-SERGIO.md`.
 
 ## 5. Cria o teu utilizador de administração
 

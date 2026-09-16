@@ -169,6 +169,30 @@ if not DEBUG and not os.environ.get("SERGIO_WHATSAPP"):
     )
 
 
+# --- RGPD (política de privacidade) ------------------------------------------
+# Quem responde legalmente pelos dados dos alunos é o SÉRGIO (o negócio é
+# dele), não quem fez a app. Estes três valores são o que a política precisa
+# de dizer e só ele pode fornecer: como se identifica, para onde se escreve a
+# pedir os dados ou o apagamento, e quanto tempo os guarda depois de alguém
+# deixar de ser aluno.
+RGPD_RESPONSAVEL = os.environ.get("RGPD_RESPONSAVEL", "")
+RGPD_CONTACTO = os.environ.get("RGPD_CONTACTO", "")
+RGPD_PRAZO_ANOS = os.environ.get("RGPD_PRAZO_ANOS", "")
+
+# Mesma lógica do SERGIO_WHATSAPP: em produção isto não pode ficar por
+# preencher. Uma política publicada sem responsável nem contacto não é uma
+# política — é um texto que finge ser uma. Vazio em dev mostra um aviso na
+# própria página, para não passar despercebido.
+if not DEBUG and not all([RGPD_RESPONSAVEL, RGPD_CONTACTO, RGPD_PRAZO_ANOS]):
+    raise ImproperlyConfigured(
+        "Faltam dados da política de privacidade: RGPD_RESPONSAVEL (nome ou "
+        "entidade do Sérgio), RGPD_CONTACTO (email ou telemóvel para pedidos "
+        "sobre dados) e RGPD_PRAZO_ANOS (anos que guarda os dados de quem "
+        "deixa de ser aluno). Sem eles a página de privacidade fica por "
+        "preencher e os alunos não têm a quem se dirigir."
+    )
+
+
 # --- Segurança em produção ---------------------------------------------------
 # Só quando DEBUG=False. O Railway serve tudo por HTTPS atrás de um proxy;
 # estas opções dizem ao Django para confiar no cabeçalho do proxy e forçar

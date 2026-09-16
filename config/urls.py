@@ -9,7 +9,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
-from accounts.views import ThrottledLoginView
+from accounts.views import ThrottledLoginView, com_travao
 from bookings.forms import PhoneLoginForm
 
 # Link de WhatsApp para o aluno pedir ajuda com a password (recuperação = Opção A).
@@ -17,6 +17,10 @@ _wa_help = "Olá! Esqueci-me da password da app RESTART NOW. Podes ajudar-me?"
 WA_HELP_URL = "https://wa.me/%s?text=%s" % (settings.SERGIO_WHATSAPP, quote(_wa_help))
 
 urlpatterns = [
+    # Tem de vir ANTES do admin.site.urls para ganhar o pedido: o login do
+    # painel passa a ter o mesmo travão de tentativas do login do site.
+    # O reverse de "admin:login" continua a dar este mesmo endereço.
+    path("admin/login/", com_travao(admin.site.login)),
     path("admin/", admin.site.urls),
     # Login/logout (por telemóvel). Sem recuperação por email — é via WhatsApp.
     # ThrottledLoginView limita tentativas falhadas (proteção de força bruta).

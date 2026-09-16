@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models, transaction
-from django.db.models import F
+from django.db.models import Count, F, Q
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
@@ -79,11 +79,35 @@ class ServiceType(models.Model):
         return self.name
 
 
+class SessionQuerySet(models.QuerySet):
+    """Consultas de sessões que trazem já o que os ecrãs precisam."""
+
+    def com_inscritos(self):
+        """
+        Traz o nº de inscritos de cada aula **na mesma consulta**.
+
+        Sem isto, cada "3 / 12" no ecrã é uma ida à base de dados (uma por
+        aula, o clássico N+1): dez aulas no horário eram vinte consultas, e a
+        lista de Sessões do admin passava das duas centenas. Em SQLite local
+        não se nota, mas em produção a base de dados está noutra máquina e
+        cada ida é uma viagem pela rede.
+
+        O resultado fica em `_inscritos`, que o `spots_taken` usa quando lá
+        está. Sublinhado à frente porque é detalhe interno: quem lê o código
+        continua a usar `spots_taken`.
+        """
+        return self.annotate(
+            _inscritos=Count("bookings", filter=Q(bookings__status=Booking.BOOKED))
+        )
+
+
 class Session(models.Model):
     """
     Uma sessão agendada e concreta na agenda (uma aula ou um treino específico,
     num dia e hora). É a isto que os alunos se inscrevem.
     """
+
+    objects = SessionQuerySet.as_manager()
 
     service_type = models.ForeignKey(
         ServiceType,
@@ -141,7 +165,17 @@ class Session(models.Model):
 
     @property
     def spots_taken(self):
-        """Nº de vagas já ocupadas (marcações ativas)."""
+        """
+        Nº de vagas já ocupadas (marcações ativas).
+
+        Se a consulta veio de `com_inscritos()`, a contagem já foi feita pela
+        base de dados e é usada tal como está. Fora desse caso — um objeto
+        criado à mão, um teste, o admin a gravar — conta na altura. Assim as
+        páginas ficam rápidas sem obrigar ninguém a lembrar-se disto.
+        """
+        contados = getattr(self, "_inscritos", None)
+        if contados is not None:
+            return contados
         return self.bookings.filter(status=Booking.BOOKED).count()
 
     @property
