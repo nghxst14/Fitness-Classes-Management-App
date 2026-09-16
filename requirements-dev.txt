@@ -1,0 +1,10 @@
+# Ferramentas de DESENVOLVIMENTO. A app não precisa delas para correr — por
+# isso não estão no requirements.txt, que é o que o Railway instala.
+#
+# Instalar:  .\venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+
+-r requirements.txt
+
+# Linter: apanha imports por usar, variáveis mortas e erros de escrita antes
+# de chegarem ao browser. Configurado no pyproject.toml.
+ruff>=0.6

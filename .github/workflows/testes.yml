@@ -1,0 +1,51 @@
+# Corre os testes e o linter a cada push e pull request.
+#
+# Porquê: os testes só valem se alguém se lembrar de os correr. Aqui correm
+# sozinhos, e um push que parta alguma coisa fica marcado com uma cruz
+# vermelha no GitHub em vez de passar despercebido até ao deploy.
+#
+# Corre em Ubuntu (o GitHub não dá Windows de graça com a mesma folga) com o
+# Python 3.12, o mesmo que o .python-version declara e o Railway usa.
+
+name: Testes
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar o Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar as dependências
+        run: pip install -r requirements-dev.txt
+
+      - name: Linter
+        run: ruff check .
+
+      - name: Verificações do Django
+        run: python manage.py check
+        env:
+          DJANGO_SECRET_KEY: chave-so-para-a-integracao-continua-nao-e-segredo
+
+      - name: Testes
+        run: python manage.py test accounts bookings
+        env:
+          DJANGO_SECRET_KEY: chave-so-para-a-integracao-continua-nao-e-segredo
+
+      - name: Migrações em falta
+        # Apanha o caso de alguém mexer num modelo e esquecer o
+        # makemigrations — que só dá erro em produção, ao aplicar.
+        run: python manage.py makemigrations --check --dry-run
+        env:
+          DJANGO_SECRET_KEY: chave-so-para-a-integracao-continua-nao-e-segredo

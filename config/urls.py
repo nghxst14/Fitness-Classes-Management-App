@@ -14,7 +14,7 @@ from bookings.forms import PhoneLoginForm
 
 # Link de WhatsApp para o aluno pedir ajuda com a password (recuperação = Opção A).
 _wa_help = "Olá! Esqueci-me da password da app RESTART NOW. Podes ajudar-me?"
-WA_HELP_URL = "https://wa.me/%s?text=%s" % (settings.SERGIO_WHATSAPP, quote(_wa_help))
+WA_HELP_URL = f"https://wa.me/{settings.SERGIO_WHATSAPP}?text={quote(_wa_help)}"
 
 urlpatterns = [
     # Tem de vir ANTES do admin.site.urls para ganhar o pedido: o login do

@@ -15,7 +15,11 @@ from django.views.decorators.http import require_POST
 
 from .forms import SignUpForm
 from .models import (
-    Booking, ListaEspera, MovimentoCredito, Pack, Session,
+    Booking,
+    ListaEspera,
+    MovimentoCredito,
+    Pack,
+    Session,
     promover_da_lista_de_espera,
 )
 

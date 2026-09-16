@@ -48,7 +48,14 @@ espaço para fazer bem, não licença para complicar.
 venv\Scripts\activate
 python manage.py runserver          # http://127.0.0.1:8000/  (site) e /admin/
 python manage.py test accounts bookings   # 136 testes, todos a passar
+python -m ruff check .                    # linter (configurado no pyproject.toml)
 ```
+As ferramentas de desenvolvimento (o **ruff**) estão no `requirements-dev.txt`,
+não no `requirements.txt` — a app não precisa delas para correr e o Railway não
+as deve instalar. **A cada push, o GitHub Actions corre o linter, o `check`, os
+testes e o `makemigrations --check`** (`.github/workflows/testes.yml`): um push
+que parta alguma coisa fica com uma cruz vermelha em vez de passar despercebido
+até ao deploy.
 `makemigrations` + `migrate` só quando os modelos mudam. Ao mexer no CSS, o
 browser cacheia — usar **Ctrl+F5**. Detalhes completos em `GUIA_COMANDOS.md`.
 
@@ -533,20 +540,15 @@ admin (360/390/768/1024/1400px); throttle de login; recuperação via WhatsApp;
    superuser **`claude-preview`**, os 12 alunos com `(demo)` no apelido, a
    conta `912000000`, e as aulas com `DEMO - apagar antes do deploy` no campo
    de notas.
-6. **Cache do throttle de login** — hoje em memória do processo: não
-   sobrevive a um deploy nem a mais do que um worker do gunicorn. O travão
-   em si já existe nas duas portas (site e `/admin/`); o que falta é a
-   contagem viver fora do processo (Redis, ou a tabela de cache do Django).
-7. **Dois ou mais administradores** (set 2026, decisão do André): o André
-   para manutenção, o Sérgio como administrador prático, e mais tarde poder
-   dar-se acesso a outros. O `accounts/admin.py` ainda esconde grupos e
-   permissões porque foi desenhado para **um** superuser. Falta decidir o
-   que o Sérgio pode e não pode fazer, e dar-lhe um ecrã para isso que não
-   seja o painel de permissões do Django (dezenas de checkboxes em inglês).
-8. **Lembretes da aula do dia seguinte** — o que falta do canal de avisos.
+6. **Lembretes da aula do dia seguinte** — o que falta do canal de avisos.
    Segue o padrão já usado na lista de espera: a app junta quem avisar num
    ecrã e o Sérgio manda a mensagem pelo WhatsApp dele.
-9. Mini-guia do admin para o Sérgio (formação de entrega).
+7. **Vista semanal do horário** e **instalar no telemóvel (PWA)** — os dois
+   por fazer, nenhum bloqueia nada.
+8. **Dar acesso de administrador a mais alguém** — as regras já existem
+   (quem não é superuser não mexe em contas de admin), mas atribui-se pelo
+   painel de permissões do Django, que é denso e em inglês. Se um dia for
+   preciso com frequência, vale um ecrã próprio.
 
 *(Ficaram feitos em set 2026: o **rasto dos créditos** — `MovimentoCredito`,
 secção 5; as **cópias de segurança** — `scripts/backup.ps1`; as **páginas de

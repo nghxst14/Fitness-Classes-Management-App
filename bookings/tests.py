@@ -12,10 +12,18 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import CreditType
+
 from .forms import PhoneLoginForm, SignUpForm, normalizar_telemovel
 from .models import (
-    Booking, ListaEspera, Location, MovimentoCredito, Pack, ServiceType,
-    Session, WeeklyProgramSlot, promover_da_lista_de_espera,
+    Booking,
+    ListaEspera,
+    Location,
+    MovimentoCredito,
+    Pack,
+    ServiceType,
+    Session,
+    WeeklyProgramSlot,
+    promover_da_lista_de_espera,
 )
 
 
@@ -81,8 +89,8 @@ class WeeklyProgramGenerateTests(TestCase):
         self.assertEqual(Session.objects.count(), 2)
         # Confirma dia e hora corretos (Seg 03/08 08:00, Sáb 08/08 09:30).
         horas = sorted(
-            (timezone.localtime(s.start).strftime("%a %H:%M")
-             for s in Session.objects.all())
+            timezone.localtime(s.start).strftime("%a %H:%M")
+             for s in Session.objects.all()
         )
         self.assertEqual(len(horas), 2)
 
@@ -121,6 +129,7 @@ class HoraWidgetTests(TestCase):
 
     def _campo(self):
         from django import forms
+
         from bookings.admin import AdminSplitDateTimeHora
         return forms.SplitDateTimeField(widget=AdminSplitDateTimeHora())
 
@@ -409,7 +418,7 @@ class SessionAdminActionTests(TestCase):
         self.assertFalse(self.sessao.is_cancelled)  # ainda ativa
 
     def test_cancelar_em_massa_confirmado_cancela_e_devolve(self):
-        response = self.client_http.post(
+        self.client_http.post(
             self.url,
             {
                 "action": "cancelar_sessoes",
@@ -1087,8 +1096,9 @@ class MovimentoCreditoTests(TestCase):
     # --- o livro não se mexe --------------------------------------------
 
     def test_o_admin_nao_deixa_criar_alterar_nem_apagar(self):
-        from bookings.admin import MovimentoCreditoAdmin
         from django.contrib.admin.sites import site
+
+        from bookings.admin import MovimentoCreditoAdmin
         painel = MovimentoCreditoAdmin(MovimentoCredito, site)
         self.assertFalse(painel.has_add_permission(None))
         self.assertFalse(painel.has_change_permission(None))

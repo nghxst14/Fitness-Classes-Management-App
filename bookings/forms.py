@@ -82,8 +82,8 @@ class SignUpForm(UserCreationForm):
         # para não perder o que já foi escrito no formulário. O reverse() dá
         # um endereço nosso, por isso o mark_safe não introduz risco.
         self.fields["aceita_privacidade"].label = mark_safe(
-            'Li e aceito a <a href="%s" target="_blank" rel="noopener">'
-            "política de privacidade</a>" % reverse("privacidade")
+            f'Li e aceito a <a href="{reverse("privacidade")}" target="_blank" '
+            'rel="noopener">política de privacidade</a>'
         )
         # Sem os dois pontos do fim: os outros campos rotulam uma caixa que se
         # preenche ("Nome:"), este é uma frase que se aceita.

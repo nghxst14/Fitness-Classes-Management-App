@@ -31,8 +31,15 @@ try:
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import cm
     from reportlab.platypus import (
-        HRFlowable, KeepTogether, ListFlowable, ListItem, PageBreak, Paragraph,
-        SimpleDocTemplate, Spacer, Table, TableStyle,
+        HRFlowable,
+        KeepTogether,
+        ListFlowable,
+        ListItem,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
     )
 except ImportError:
     sys.exit(
@@ -140,10 +147,10 @@ def tabela(linhas, est, largura):
         dados.append([Paragraph(inline(c), estilo) for c in celulas])
     if not dados:
         return None
-    n = max(len(l) for l in dados)
-    for l in dados:
-        while len(l) < n:
-            l.append(Paragraph("", est["celula"]))
+    n = max(len(linha) for linha in dados)
+    for linha in dados:
+        while len(linha) < n:
+            linha.append(Paragraph("", est["celula"]))
     t = Table(dados, colWidths=[largura / n] * n, hAlign="LEFT", repeatRows=1)
     t.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), FUNDO_CODIGO),

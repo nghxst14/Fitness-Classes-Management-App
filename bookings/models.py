@@ -153,6 +153,17 @@ class Session(models.Model):
         verbose_name = "Sessão"
         verbose_name_plural = "Sessões"
         ordering = ["start"]
+        # Quase toda a app pergunta por sessões num intervalo de tempo: o
+        # horário filtra por dia, a página inicial pede as próximas, o admin
+        # ordena por data. Sem índice, cada uma dessas perguntas percorre a
+        # tabela inteira — o que não custa nada com 48 aulas e passa a custar
+        # ao fim de uns anos de aulas semanais.
+        indexes = [
+            models.Index(fields=["start"], name="idx_sessao_inicio"),
+            models.Index(
+                fields=["is_cancelled", "start"], name="idx_sessao_ativa_inicio"
+            ),
+        ]
 
     def __str__(self):
         label = self.title or self.service_type.name
@@ -538,6 +549,13 @@ class Booking(models.Model):
             models.UniqueConstraint(
                 fields=["session", "client"], name="unique_booking_por_sessao"
             )
+        ]
+        # Contar inscritos por aula (a coluna "3 / 12") e listar as marcações
+        # de um aluno são as duas perguntas mais repetidas da app. Ambas
+        # filtram sempre pelo estado, por isso ele entra no índice.
+        indexes = [
+            models.Index(fields=["session", "status"], name="idx_marcacao_aula"),
+            models.Index(fields=["client", "status"], name="idx_marcacao_aluno"),
         ]
 
     def __str__(self):

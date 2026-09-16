@@ -1,0 +1,38 @@
+﻿# Configuração do Ruff — o linter (e formatador) do projeto.
+#
+# Porquê um linter: apanha imports por usar, variáveis mortas e erros de
+# escrita antes de chegarem ao browser. Foi escolhido o Ruff por ser um só
+# programa a fazer o trabalho de três (flake8 + isort + pyupgrade), rápido, e
+# por se configurar num ficheiro que já existia.
+#
+# Correr:  .\venv\Scripts\python.exe -m ruff check .
+# Corrigir o que é seguro:  ... -m ruff check . --fix
+
+[tool.ruff]
+# O mesmo limite que o código já segue à mão.
+line-length = 88
+target-version = "py312"
+extend-exclude = ["venv", "*/migrations/*"]
+
+[tool.ruff.lint]
+# E = erros de estilo, F = erros a sério (imports por usar, nomes que não
+# existem), I = ordem dos imports, UP = sintaxe antiga, B = armadilhas comuns.
+# Deliberadamente curto: um linter que grita por tudo acaba ignorado.
+select = ["E", "F", "I", "UP", "B"]
+ignore = [
+    # As mensagens em português têm acentos e ficam naturalmente mais longas;
+    # partir uma frase a meio para caber em 88 colunas piora a leitura.
+    "E501",
+]
+
+[tool.ruff.lint.isort]
+# O projeto agrupa imports em parênteses com vários nomes por linha. Sem isto
+# o Ruff parte cada nome para a sua linha, o que mudava dezenas de ficheiros
+# sem nada ganhar — o estilo já é consistente, só não é o do formatador.
+split-on-trailing-comma = false
+
+[tool.ruff.lint.per-file-ignores]
+# Nos testes, o Django exige imports que parecem não ser usados.
+"*/tests.py" = ["F401"]
+# O settings.py define nomes em maiúsculas que o Django lê por reflexão.
+"config/settings.py" = ["F405", "F403"]

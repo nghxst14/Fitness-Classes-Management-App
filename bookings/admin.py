@@ -1,5 +1,5 @@
 import re
-from datetime import time as dt_time, timedelta
+from datetime import timedelta
 
 from django import forms
 from django.contrib import admin, messages
@@ -14,8 +14,14 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from .models import (
-    Booking, ListaEspera, Location, MovimentoCredito, Pack, ServiceType,
-    Session, WeeklyProgramSlot,
+    Booking,
+    ListaEspera,
+    Location,
+    MovimentoCredito,
+    Pack,
+    ServiceType,
+    Session,
+    WeeklyProgramSlot,
 )
 
 

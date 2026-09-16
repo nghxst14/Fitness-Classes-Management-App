@@ -192,10 +192,15 @@ voltem a reservar.
 
 Quando alguém disser *"eu tinha mais créditos"*:
 
-1. Separador **Movimentos de créditos**.
-2. Pesquisa pelo nome ou telemóvel do aluno.
-3. Vês a história toda, linha a linha: quando, quanto, porquê, o saldo que
-   ficou, e quem o fez.
+1. Separador **Utilizadores**.
+2. Na linha do aluno, clica em **ver** (coluna *Histórico*).
+3. Numa página só: as sessões que tem agora, o extrato completo e as aulas a
+   que foi. Linha a linha: quando, quanto, porquê, o saldo que ficou, e quem
+   o fez.
+
+> Também há o separador **Movimentos de créditos**, que mostra o mesmo para
+> todos os alunos juntos. Para responder a uma pessoa, o *Histórico* dela é
+> mais rápido.
 
 Cada linha diz o motivo: *Créditos adicionados*, *Reserva de aula*, *O aluno
 cancelou*, *A aula foi cancelada*, *Marcação apagada* ou *Ajuste manual*.
@@ -204,6 +209,45 @@ Esta lista **não se pode alterar nem apagar** — é de propósito. Um registo 
 se pode corrigir não serve para resolver discussões. Se um saldo estiver
 errado, corriges nos *Utilizadores*, e essa correção entra aqui como mais uma
 linha.
+
+### 3.8. Marcar quem veio e quem faltou
+
+No fim da aula (ou depois, com calma):
+
+1. Separador **Sessões** → abre a aula.
+2. Botão **"Marcar presenças"**.
+3. Para cada aluno, toca em **Veio** ou **Faltou**. Depois, **Guardar
+   presenças**.
+
+Marcar uma falta **não devolve** a sessão ao aluno — ela foi gasta quando ele
+reservou. Quem avisa a tempo cancela a reserva no site e recebe-a de volta;
+quem não aparece sem avisar, perde-a. É o que faz as pessoas cancelarem a
+tempo e libertarem a vaga para outra pessoa.
+
+Quem cancelou a reserva não aparece nesta lista — cancelou a tempo, já
+recebeu a sessão de volta, e não é uma falta.
+
+Podes corrigir sempre que quiseres: voltas a entrar e marcas outra vez.
+
+### 3.9. Apagar os dados de um aluno (quando ele pede)
+
+Um aluno tem o direito de pedir que os dados dele sejam apagados, e tu és
+obrigado a fazê-lo. É raro, mas vai acontecer um dia.
+
+1. Separador **Utilizadores**.
+2. Abre a ficha do aluno.
+3. Botão **Remover**, em baixo. Confirma.
+
+Isto apaga **tudo** o que é dele: a conta, as marcações e o extrato de
+créditos. **Não tem volta.**
+
+Antes de apagares, vale a pena:
+
+- **Perguntar se ele tem sessões por usar.** Se tiver, perde-as. Muitas vezes
+  a pessoa só quer deixar de receber mensagens, não perder o que pagou.
+- **Ver o histórico dele** (3.7), caso precises do registo para as tuas contas.
+
+As aulas em si não desaparecem — são tuas, não dele.
 
 ---
 
@@ -403,12 +447,27 @@ Três hipóteses, por ordem de probabilidade:
 
 ### "Um aluno quer entrar numa aula que está cheia"
 
-Ainda não há lista de espera. Por agora: se alguém cancelar, a vaga fica livre
-e quem chegar primeiro reserva. Podes avisar o aluno pelo WhatsApp quando
-vires uma vaga abrir.
+Ele próprio entra na **lista de espera**, no site: quando uma aula está cheia,
+em vez de "Esgotada" aparece o botão **"Entrar na lista de espera"**. Entrar
+na fila **não gasta sessões**.
 
-Se quiseres abrir espaço, podes **aumentar a lotação** dessa aula na lista de
-Sessões.
+Se alguém cancelar, o primeiro da fila **fica logo inscrito** e gasta 1
+sessão. A app não consegue mandar mensagens, por isso **és tu que o avisas** —
+e é para isso que serve o separador **Lista de espera**:
+
+1. Abre **Lista de espera**. Ele mostra logo só quem **falta avisar**.
+2. Clica no número de telemóvel → abre a conversa no WhatsApp.
+3. Depois de avisares, seleciona a linha e escolhe a ação
+   **"Marcar como avisado"**. A linha desaparece da lista.
+
+> **Vale a pena espreitar este separador uma vez por dia.** Enquanto lá
+> estiver alguém, há uma pessoa inscrita numa aula sem saber.
+
+Quem está na fila e não tem sessões desse tipo é **saltado** (a vaga vai para
+o seguinte), mas continua na fila para a próxima vez.
+
+Se quiseres abrir espaço, também podes **aumentar a lotação** dessa aula na
+lista de Sessões.
 
 ### "Cancelei uma aula sem querer"
 
@@ -492,10 +551,12 @@ Para não andares à procura:
 
 - **A app não manda mensagens nenhumas.** Nem quando cancelas uma aula, nem
   lembretes antes das aulas. Tudo o que for avisar é pelo WhatsApp, por ti.
-- **Não há lista de espera** para aulas cheias.
-- **Marcar presenças e faltas** só se faz uma a uma.
+  Onde há alguém a avisar, a app junta-o numa lista para ti — é o caso do
+  separador **Lista de espera** (ver 5, "aula cheia").
+- **Não há lembretes automáticos** da aula do dia seguinte.
 - **O aluno não pode mudar a password sozinho** — tem de te pedir.
-- **O aluno não vê o histórico** das aulas que já fez, só as futuras.
+- **O aluno não vê o histórico** das aulas que já fez, só as futuras. Tu vês
+  (ver 3.7).
 - **O horário vê-se dia a dia**, não há vista de semana.
 
 Algumas destas estão planeadas. Se alguma te fizer mesmo falta no dia-a-dia,
