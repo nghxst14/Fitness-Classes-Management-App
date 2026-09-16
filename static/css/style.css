@@ -310,6 +310,36 @@ h2 {
 }
 .btn-reservado .ck { color: var(--green); font-weight: 700; }
 
+/* Já está na fila de uma aula cheia. Neutro como o "Reservado", mas sem o
+   visto: estar na fila não é ter lugar. Ao lado fica o "Sair", discreto —
+   é uma saída, não uma ação que se ofereça. */
+.btn-na-fila {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  font-size: 0.88rem;
+  background: var(--dark-2);
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 0.45rem 0.9rem;
+}
+.btn-link-sair {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 0.3rem 0.4rem;
+}
+.btn-link-sair:hover { color: var(--white); }
+/* Cabe em duas linhas num cartão estreito sem empurrar a lotação. */
+.btn-espera { font-size: 0.78rem; padding: 0.45rem 0.7rem; }
+
 /* Aula que já decorreu: mesmo cinzento neutro do "Reservado", sem o visto
    verde. Não é uma ação nem uma conquista — é só um facto. Mostrar (em vez
    de esconder) confirma ao aluno que a aula existiu. */
@@ -601,7 +631,8 @@ h2 {
    botões no computador só os tornaria pesados. */
 @media (max-width: 720px) {
   .btn-small { min-height: 44px; padding: 0.7rem 1.1rem; }
-  .btn-reservado, .btn-passada { min-height: 44px; }
+  .btn-reservado, .btn-passada, .btn-na-fila { min-height: 44px; }
+  .btn-link-sair { min-height: 44px; }
   .day-arrow { width: 44px; height: 44px; }
   .saldo-chip { min-height: 40px; }
 }

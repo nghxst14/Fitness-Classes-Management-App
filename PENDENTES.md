@@ -40,7 +40,24 @@ confirma na demonstração.
   código (marcar falta não devolve nada).
 - **Créditos expiram?** Assumido que não, como está hoje.
 
-## Decidir ANTES de construir: por onde é que a app avisa o aluno
+## DECIDIDO (set 2026): a app junta, o Sérgio avisa
+
+O André decidiu o canal de avisos: **a app não tenta falar com o aluno**.
+Quando há alguém para avisar, junta-o num ecrã do painel e o Sérgio manda a
+mensagem pelo WhatsApp dele. Mantém o toque pessoal — que é o negócio dele —
+e não acrescenta infraestrutura nenhuma.
+
+Já aplicado na **lista de espera** (ecrã "Lista de espera", filtrado por
+quem falta avisar). É o padrão a seguir para os lembretes.
+
+Também decidido:
+- **O Sérgio é administrador prático mas não mexe em contas de admin.**
+  Feito: a lista não lhe mostra os admins, a ficha e a remoção recusam, e os
+  campos `is_staff`/`is_superuser` não aparecem no formulário.
+- **O aluno não apaga a conta sozinho** — pede ao Sérgio, que apaga no
+  painel. Evita que alguém se apague por engano e perca créditos pagos.
+
+## Nota histórica: por onde é que a app avisa o aluno
 
 Levantado em set 2026, ao planear a lista de espera, as presenças e os
 lembretes. **A app não tem forma de ir ter com ninguém**: não há email (foi

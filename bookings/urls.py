@@ -11,4 +11,14 @@ urlpatterns = [
     path("marcar/<int:session_id>/", views.book, name="book"),
     path("as-minhas-marcacoes/", views.my_bookings, name="my_bookings"),
     path("cancelar/<int:booking_id>/", views.cancel_booking, name="cancel_booking"),
+    path(
+        "lista-espera/entrar/<int:session_id>/",
+        views.entrar_lista_espera,
+        name="entrar_lista_espera",
+    ),
+    path(
+        "lista-espera/sair/<int:session_id>/",
+        views.sair_lista_espera,
+        name="sair_lista_espera",
+    ),
 ]

@@ -14,8 +14,8 @@ from django.utils import timezone
 from accounts.models import CreditType
 from .forms import PhoneLoginForm, SignUpForm, normalizar_telemovel
 from .models import (
-    Booking, Location, MovimentoCredito, Pack, ServiceType, Session,
-    WeeklyProgramSlot,
+    Booking, ListaEspera, Location, MovimentoCredito, Pack, ServiceType,
+    Session, WeeklyProgramSlot, promover_da_lista_de_espera,
 )
 
 
@@ -1343,3 +1343,254 @@ class ListaEditavelDoAdminTests(TestCase):
             self.assertIn(tipo.name, tipos, f"falta o tipo {tipo.name} no menu")
         for local in self.locais:
             self.assertIn(local.name, locais, f"falta o local {local.name} no menu")
+
+
+class ListaEsperaTests(TestCase):
+    """
+    A fila de quem quer entrar numa aula cheia.
+
+    Decisão de set 2026: quando abre vaga, o primeiro da fila é inscrito
+    automaticamente e gasta 1 crédito — e fica a aguardar aviso, para o
+    Sérgio lhe mandar uma mensagem pelo WhatsApp. A app não tem como avisar
+    ninguém sozinha, por isso a promoção sem o aviso dele deixaria o aluno
+    inscrito sem saber.
+    """
+
+    def setUp(self):
+        self.servico = ServiceType.objects.create(
+            name="Aula", default_capacity=1, credit_type=CreditType.SMALL_GROUP
+        )
+        self.aula = Session.objects.create(
+            service_type=self.servico,
+            start=timezone.now() + timedelta(days=2),
+            duration_minutes=60, capacity=1,
+        )
+        # O ocupante da única vaga.
+        self.ocupante = User.objects.create_user(
+            username="913000001", password="x", sessoes_sg=5
+        )
+        Booking.objects.create(session=self.aula, client=self.ocupante)
+
+        self.espera = User.objects.create_user(
+            username="913000002", password="x", sessoes_sg=5
+        )
+        self.cliente = Client()
+        self.cliente.force_login(self.espera)
+
+    def _entrar_na_fila(self, quem=None):
+        c = self.cliente
+        if quem is not None:
+            c = Client()
+            c.force_login(quem)
+        return c.post(reverse("entrar_lista_espera", args=[self.aula.pk]))
+
+    def _cancelar_do_ocupante(self):
+        marcacao = Booking.objects.get(session=self.aula, client=self.ocupante)
+        dono = Client()
+        dono.force_login(self.ocupante)
+        return dono.post(reverse("cancel_booking", args=[marcacao.pk]))
+
+    def test_entrar_na_fila_de_uma_aula_cheia(self):
+        self._entrar_na_fila()
+        self.assertTrue(
+            ListaEspera.objects.filter(
+                session=self.aula, client=self.espera,
+                estado=ListaEspera.A_ESPERA
+            ).exists()
+        )
+
+    def test_entrar_na_fila_nao_gasta_credito(self):
+        # Só se paga quando se entra mesmo na aula.
+        self._entrar_na_fila()
+        self.espera.refresh_from_db()
+        self.assertEqual(self.espera.sessoes_sg, 5)
+
+    def test_nao_se_entra_na_fila_de_uma_aula_com_vaga(self):
+        livre = Session.objects.create(
+            service_type=self.servico,
+            start=timezone.now() + timedelta(days=3),
+            duration_minutes=60, capacity=10,
+        )
+        self.cliente.post(reverse("entrar_lista_espera", args=[livre.pk]))
+        self.assertFalse(ListaEspera.objects.filter(session=livre).exists())
+
+    def test_nao_se_entra_duas_vezes(self):
+        self._entrar_na_fila()
+        self._entrar_na_fila()
+        self.assertEqual(ListaEspera.objects.filter(session=self.aula).count(), 1)
+
+    def test_quem_cancela_liberta_a_vaga_para_o_primeiro_da_fila(self):
+        self._entrar_na_fila()
+        self._cancelar_do_ocupante()
+
+        self.assertTrue(
+            Booking.objects.filter(
+                session=self.aula, client=self.espera, status=Booking.BOOKED
+            ).exists()
+        )
+
+    def test_quem_sobe_paga_a_sessao(self):
+        self._entrar_na_fila()
+        self._cancelar_do_ocupante()
+
+        self.espera.refresh_from_db()
+        self.assertEqual(self.espera.sessoes_sg, 4)
+        self.assertTrue(
+            MovimentoCredito.objects.filter(
+                client=self.espera, quantidade=-1,
+                motivo=MovimentoCredito.RESERVA
+            ).exists()
+        )
+
+    def test_quem_sobe_fica_a_aguardar_aviso(self):
+        self._entrar_na_fila()
+        self._cancelar_do_ocupante()
+
+        lugar = ListaEspera.objects.get(session=self.aula, client=self.espera)
+        self.assertEqual(lugar.estado, ListaEspera.INSCRITO)
+        self.assertIsNone(lugar.avisado_em, "não pode nascer já avisado")
+        self.assertIn(lugar, ListaEspera.objects.por_avisar())
+
+    def test_sem_saldo_salta_para_o_seguinte(self):
+        # O primeiro da fila não tem créditos: a vaga não pode ficar perdida.
+        sem_saldo = User.objects.create_user(
+            username="913000003", password="x", sessoes_sg=0
+        )
+        self._entrar_na_fila(quem=sem_saldo)
+        self._entrar_na_fila()  # o segundo tem saldo
+        self._cancelar_do_ocupante()
+
+        self.assertTrue(
+            Booking.objects.filter(
+                session=self.aula, client=self.espera, status=Booking.BOOKED
+            ).exists()
+        )
+        self.assertFalse(
+            Booking.objects.filter(
+                session=self.aula, client=sem_saldo, status=Booking.BOOKED
+            ).exists()
+        )
+
+    def test_so_sobe_uma_pessoa_por_vaga(self):
+        self._entrar_na_fila()
+        outro = User.objects.create_user(
+            username="913000004", password="x", sessoes_sg=5
+        )
+        self._entrar_na_fila(quem=outro)
+        self._cancelar_do_ocupante()
+
+        self.assertEqual(self.aula.spots_taken, 1)
+
+    def test_sair_da_fila(self):
+        self._entrar_na_fila()
+        self.cliente.post(reverse("sair_lista_espera", args=[self.aula.pk]))
+        self.assertFalse(
+            ListaEspera.objects.filter(
+                session=self.aula, client=self.espera,
+                estado=ListaEspera.A_ESPERA
+            ).exists()
+        )
+
+    def test_entrar_na_fila_volta_ao_dia_da_aula(self):
+        """
+        Não pode atirar o aluno para hoje.
+
+        O horário abre sempre no dia de hoje; a aula que ele estava a ver
+        pode ser daqui a dois dias. Sem isto, entrava na fila e ficava a
+        olhar para "não há sessões marcadas para este dia".
+        """
+        resposta = self._entrar_na_fila()
+        dia = timezone.localtime(self.aula.start).strftime("%Y-%m-%d")
+        self.assertRedirects(resposta, f"{reverse('schedule')}?date={dia}")
+
+    def test_sair_da_fila_volta_ao_dia_da_aula(self):
+        self._entrar_na_fila()
+        resposta = self.cliente.post(
+            reverse("sair_lista_espera", args=[self.aula.pk])
+        )
+        dia = timezone.localtime(self.aula.start).strftime("%Y-%m-%d")
+        self.assertRedirects(resposta, f"{reverse('schedule')}?date={dia}")
+
+
+class EcraDeAvisosDoSergioTests(TestCase):
+    """
+    O painel onde o Sérgio vê quem tem de avisar.
+
+    A app não manda mensagens: quando alguém sobe da lista de espera, este
+    ecrã é o único sinal de que há uma pessoa inscrita numa aula sem saber.
+    """
+
+    def setUp(self):
+        chefe = User.objects.create_superuser(username="chefe", password="x")
+        self.painel = Client()
+        self.painel.force_login(chefe)
+
+        servico = ServiceType.objects.create(
+            name="Aula", default_capacity=1, credit_type=CreditType.SMALL_GROUP
+        )
+        self.aula = Session.objects.create(
+            service_type=servico,
+            start=timezone.now() + timedelta(days=2),
+            duration_minutes=60, capacity=1,
+        )
+        self.subiu = User.objects.create_user(
+            username="913000007", password="x", first_name="Rita", sessoes_sg=5
+        )
+        self.url = reverse("admin:bookings_listaespera_changelist")
+
+    def _promover(self):
+        ListaEspera.objects.create(session=self.aula, client=self.subiu)
+        promover_da_lista_de_espera(self.aula)
+        return ListaEspera.objects.get(session=self.aula, client=self.subiu)
+
+    def test_quem_subiu_aparece_como_falta_avisar(self):
+        self._promover()
+        html = self.painel.get(self.url).content.decode()
+        self.assertIn("falta avisar", html)
+        self.assertIn("913000007", html)
+
+    def test_o_numero_abre_o_whatsapp(self):
+        self._promover()
+        html = self.painel.get(self.url).content.decode()
+        self.assertIn("https://wa.me/351913000007", html)
+
+    def test_o_nome_do_aluno_nao_entra_no_javascript(self):
+        # Mesma armadilha da coluna das Marcações: um nome com aspas não pode
+        # partir a string do confirm() e injetar código no painel.
+        self.subiu.first_name = "Ri'ta\"><script>x</script>"
+        self.subiu.save()
+        self._promover()
+        html = self.painel.get(self.url).content.decode()
+        self.assertNotIn("<script>x</script>", html)
+
+    def test_marcar_como_avisado_tira_da_lista(self):
+        lugar = self._promover()
+        self.painel.post(self.url, {
+            "action": "marcar_como_avisado",
+            "_selected_action": [str(lugar.pk)],
+        })
+        lugar.refresh_from_db()
+        self.assertIsNotNone(lugar.avisado_em)
+        self.assertNotIn(lugar, ListaEspera.objects.por_avisar())
+
+    def test_quem_ainda_espera_nao_conta_como_por_avisar(self):
+        # Está na fila mas não subiu: não há nada para avisar.
+        lugar = ListaEspera.objects.create(session=self.aula, client=self.subiu)
+        self.assertNotIn(lugar, ListaEspera.objects.por_avisar())
+
+    def test_nao_se_acrescentam_entradas_pelo_painel(self):
+        # Entra-se na fila pelo site; aqui só se avisa.
+        resposta = self.painel.get(
+            reverse("admin:bookings_listaespera_add")
+        )
+        self.assertIn(resposta.status_code, (302, 403))
+
+    def test_o_filtro_nao_oferece_um_todos_que_mente(self):
+        # A página começa filtrada por "falta avisar": um "Todos" no topo
+        # daria a mesma lista e faria duvidar do que se está a ver.
+        self._promover()
+        html = self.painel.get(self.url).content.decode()
+        filtro = html.split('data-filter-title="Por avisar"')[1].split("</details>")[0]
+        self.assertNotIn(">Todos<", filtro)
+        self.assertIn("Só quem falta avisar", filtro)
+        self.assertIn("Mostrar tudo", filtro)

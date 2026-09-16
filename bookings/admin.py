@@ -14,8 +14,8 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from .models import (
-    Booking, Location, MovimentoCredito, Pack, ServiceType, Session,
-    WeeklyProgramSlot,
+    Booking, ListaEspera, Location, MovimentoCredito, Pack, ServiceType,
+    Session, WeeklyProgramSlot,
 )
 
 
@@ -738,3 +738,115 @@ class WeeklyProgramSlotAdmin(admin.ModelAdmin):
             )
         if not any((criadas, atualizadas, saltadas, recusadas)):
             self.message_user(request, f"{cabecalho} Nada a fazer.", messages.INFO)
+
+
+def _link_whatsapp(utilizador, texto_do_confirm):
+    """
+    O número do aluno como link para o WhatsApp.
+
+    O nome vai num atributo `data-` e é lido em runtime — nunca interpolado
+    dentro do JS do onclick. Interpolar aí permitia XSS: o browser desfaz o
+    escape de HTML no contexto do atributo, e um nome com aspas partia a
+    string e injetava código no painel do Sérgio (já aconteceu uma vez, na
+    coluna das Marcações).
+    """
+    numero = utilizador.username
+    if not re.fullmatch(r"9\d{8}", numero):
+        return numero
+    nome = utilizador.get_full_name() or numero
+    return format_html(
+        '<a href="https://wa.me/351{}" target="_blank" rel="noopener" '
+        'data-nome="{}" '
+        "onclick=\"return confirm('{} ' + this.dataset.nome + '?')\">{}</a>",
+        numero, nome, texto_do_confirm, numero,
+    )
+
+
+class PorAvisarFilter(admin.SimpleListFilter):
+    """
+    O filtro que interessa neste ecrã: quem já está inscrito e ainda não sabe.
+
+    Fica ligado por omissão — é para isto que esta página serve. Enquanto
+    tiver linhas, há gente inscrita numa aula sem saber.
+    """
+
+    title = "Por avisar"
+    parameter_name = "por_avisar"
+
+    def lookups(self, request, model_admin):
+        return [("sim", "Só quem falta avisar"), ("todos", "Mostrar tudo")]
+
+    def queryset(self, request, queryset):
+        if self.value() == "todos":
+            return queryset
+        return queryset.por_avisar()
+
+    def choices(self, changelist):
+        """
+        Deita fora o "Todos" que o Django põe sempre à frente.
+
+        Aqui ele mentiria: esta página já começa filtrada por quem falta
+        avisar, e clicar em "Todos" dava exatamente a mesma lista. Salta-se
+        pela posição (é sempre o primeiro) e não pelo texto — o texto vem
+        traduzido e um dia mudaria sem avisar.
+        """
+        return list(super().choices(changelist))[1:]
+
+
+@admin.register(ListaEspera)
+class ListaEsperaAdmin(admin.ModelAdmin):
+    """
+    Quem está à espera de vaga — e, sobretudo, quem já entrou e falta avisar.
+
+    A app não manda mensagens a ninguém: quando abre uma vaga, o primeiro da
+    fila fica inscrito e **esta lista é o aviso ao Sérgio** de que tem de lhe
+    mandar uma mensagem. Clicar no número abre o WhatsApp; a seguir, marca-se
+    como avisado e a linha sai daqui.
+    """
+
+    list_display = ("client", "telemovel", "session", "estado", "entrou", "avisado")
+    list_filter = (PorAvisarFilter, "estado")
+    search_fields = (
+        "client__username", "client__first_name", "client__last_name",
+    )
+    actions = ("marcar_como_avisado",)
+    # O aluno, a aula e as datas não se editam à mão: são o registo do que
+    # aconteceu. O que se faz aqui é avisar e marcar como avisado.
+    readonly_fields = ("session", "client", "estado", "created_at", "inscrito_em")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("client", "session")
+
+    def has_add_permission(self, request):
+        # Entra-se na fila pelo site, não por aqui.
+        return False
+
+    @admin.display(description="Telemóvel")
+    def telemovel(self, obj):
+        return _link_whatsapp(obj.client, "Avisar no WhatsApp:")
+
+    @admin.display(description="Entrou na fila", ordering="created_at")
+    def entrou(self, obj):
+        return timezone.localtime(obj.created_at).strftime("%d/%m %H:%M")
+
+    @admin.display(description="Avisado?")
+    def avisado(self, obj):
+        if obj.estado != ListaEspera.INSCRITO:
+            return "—"
+        if obj.avisado_em:
+            return format_html('<span style="color:#1c7430;">✔ avisado</span>')
+        return format_html(
+            '<strong style="color:#ba2121;">falta avisar</strong>'
+        )
+
+    @admin.display(description="Marcar como avisado")
+    def marcar_como_avisado(self, request, queryset):
+        quantos = queryset.filter(
+            estado=ListaEspera.INSCRITO, avisado_em__isnull=True
+        ).update(avisado_em=timezone.now())
+        if quantos:
+            self.message_user(request, f"{quantos} aluno(s) marcados como avisados.")
+        else:
+            self.message_user(
+                request, "Nenhum dos selecionados estava à espera de aviso."
+            )

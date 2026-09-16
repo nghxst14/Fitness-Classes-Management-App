@@ -14,7 +14,10 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .forms import SignUpForm
-from .models import Booking, MovimentoCredito, Pack, Session
+from .models import (
+    Booking, ListaEspera, MovimentoCredito, Pack, Session,
+    promover_da_lista_de_espera,
+)
 
 
 def _saldos_json(user):
@@ -80,9 +83,17 @@ def schedule(request):
             client=request.user, status=Booking.BOOKED
         ).values_list("session_id", flat=True)
     )
+    # Em que filas este aluno está — um conjunto só, para o template não ter
+    # de perguntar aula a aula.
+    minhas_esperas = set(
+        ListaEspera.objects.filter(
+            client=request.user, estado=ListaEspera.A_ESPERA
+        ).values_list("session_id", flat=True)
+    )
     context = {
         "sessions": sessions,
         "my_session_ids": my_session_ids,
+        "minhas_esperas": minhas_esperas,
         "day": day,
         "prev_day": day - timedelta(days=1),
         "next_day": day + timedelta(days=1),
@@ -247,6 +258,10 @@ def cancel_booking(request, booking_id):
                 session=booking.session,
                 feito_por=request.user,
             )
+            # A vaga que acabou de abrir vai para quem está à espera. Dentro
+            # da mesma transação: ou acontecem as duas coisas, ou nenhuma.
+            booking.session.refresh_from_db()
+            promover_da_lista_de_espera(booking.session)
 
     if not cancelou:
         messages.error(request, "Esta marcação já não está ativa.")
@@ -290,3 +305,77 @@ def privacidade(request):
         "contacto": settings.RGPD_CONTACTO,
         "prazo_anos": settings.RGPD_PRAZO_ANOS,
     })
+
+
+def _voltar_ao_horario(session):
+    """
+    Volta ao horário **no dia da aula**, não no dia de hoje.
+
+    O horário abre sempre em hoje. Sem isto, quem entrava na fila de uma
+    aula de quinta era atirado para hoje e ficava a olhar para "não há
+    sessões marcadas para este dia" — sem perceber se a ação resultou.
+    """
+    dia = timezone.localtime(session.start).strftime("%Y-%m-%d")
+    return redirect(f"{reverse('schedule')}?date={dia}")
+
+
+@login_required
+@require_POST
+def entrar_lista_espera(request, session_id):
+    """
+    Põe o aluno na fila de uma aula cheia. Não gasta créditos.
+
+    Só faz sentido em aulas cheias: com vaga, o aluno reserva na mesma hora
+    e a fila seria um passo a mais para nada.
+    """
+    with transaction.atomic():
+        session = get_object_or_404(
+            Session.objects.select_for_update(), pk=session_id
+        )
+
+        if session.is_cancelled or session.is_past:
+            messages.error(request, "Essa aula já não está disponível.")
+            return redirect("schedule")
+
+        if Booking.objects.filter(
+            session=session, client=request.user, status=Booking.BOOKED
+        ).exists():
+            messages.info(request, "Já estás inscrito nesta aula.")
+            return redirect("schedule")
+
+        if not session.is_full:
+            messages.info(
+                request, "Esta aula ainda tem vagas — podes reservar já."
+            )
+            return redirect("schedule")
+
+        lugar, criado = ListaEspera.objects.get_or_create(
+            session=session, client=request.user
+        )
+        if not criado and lugar.estado == ListaEspera.SAIU:
+            # Voltar a entrar depois de ter saído: recomeça no fim da fila.
+            lugar.estado = ListaEspera.A_ESPERA
+            lugar.save(update_fields=["estado"])
+            criado = True
+
+    if criado:
+        messages.success(
+            request,
+            "Ficaste na lista de espera. Se abrir vaga, ficas inscrito e "
+            "gastas 1 sessão — o treinador avisa-te.",
+        )
+    else:
+        messages.info(request, "Já estavas na lista de espera desta aula.")
+    return _voltar_ao_horario(session)
+
+
+@login_required
+@require_POST
+def sair_lista_espera(request, session_id):
+    """Tira o aluno da fila. Não devolve nada porque nada foi gasto."""
+    session = get_object_or_404(Session, pk=session_id)
+    ListaEspera.objects.filter(
+        session=session, client=request.user, estado=ListaEspera.A_ESPERA
+    ).update(estado=ListaEspera.SAIU)
+    messages.success(request, "Saíste da lista de espera.")
+    return _voltar_ao_horario(session)

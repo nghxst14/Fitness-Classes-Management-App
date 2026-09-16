@@ -611,3 +611,128 @@ def devolver_credito_ao_apagar_marcacao(sender, instance, **kwargs):
             motivo=MovimentoCredito.MARCACAO_APAGADA,
             session=instance.session,
         )
+
+
+class ListaEsperaQuerySet(models.QuerySet):
+    def por_avisar(self):
+        """
+        Quem já foi inscrito mas ainda não sabe.
+
+        É esta a lista que o Sérgio vê no painel: a app não tem como avisar
+        ninguém, por isso o aviso é ele que o dá, pelo WhatsApp. Enquanto
+        esta lista não estiver vazia, há gente inscrita numa aula sem saber.
+        """
+        return self.filter(estado=ListaEspera.INSCRITO, avisado_em__isnull=True)
+
+
+class ListaEspera(models.Model):
+    """
+    A fila de quem quer entrar numa aula que está cheia.
+
+    Entrar na fila **não** gasta créditos: só se paga ao entrar mesmo na
+    aula. Quando abre uma vaga, o primeiro da fila com saldo é inscrito e
+    gasta 1 crédito (decisão de set 2026, o padrão do setor: é o que melhor
+    aproveita a vaga).
+
+    Como a app não fala com ninguém fora do site, quem sobe fica a
+    **aguardar aviso** até o Sérgio lhe mandar mensagem. Sem isso, alguém
+    podia ser inscrito às 22h e só descobrir ao faltar à aula.
+    """
+
+    A_ESPERA = "a_espera"
+    INSCRITO = "inscrito"
+    SAIU = "saiu"
+    ESTADOS = [
+        (A_ESPERA, "Na fila"),
+        (INSCRITO, "Entrou na aula"),
+        (SAIU, "Saiu da fila"),
+    ]
+
+    session = models.ForeignKey(
+        Session, on_delete=models.CASCADE,
+        related_name="lista_espera", verbose_name="Aula",
+    )
+    client = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="esperas", verbose_name="Aluno",
+    )
+    estado = models.CharField(
+        "Estado", max_length=10, choices=ESTADOS, default=A_ESPERA
+    )
+    created_at = models.DateTimeField("Entrou na fila em", auto_now_add=True)
+    inscrito_em = models.DateTimeField(
+        "Entrou na aula em", null=True, blank=True,
+        help_text="Quando abriu vaga e esta pessoa passou a estar inscrita.",
+    )
+    avisado_em = models.DateTimeField(
+        "Avisado em", null=True, blank=True,
+        help_text="Quando o Sérgio confirmou que avisou o aluno.",
+    )
+
+    objects = ListaEsperaQuerySet.as_manager()
+
+    class Meta:
+        verbose_name = "Lista de espera"
+        verbose_name_plural = "Listas de espera"
+        # A ordem da fila é a ordem de chegada. É esta a regra toda.
+        ordering = ["created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["session", "client"], name="uma_entrada_por_aluno_e_aula"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.client} — {self.session}"
+
+
+def promover_da_lista_de_espera(session, feito_por=None):
+    """
+    Abriu uma vaga nesta aula: faz subir quem estiver à espera.
+
+    Devolve a entrada de quem subiu, ou None se não subiu ninguém.
+
+    Chamar **dentro** da transação que libertou a vaga: assim, ou o
+    cancelamento e a promoção acontecem os dois, ou não acontece nenhum.
+
+    Quem não tem saldo do tipo certo é **saltado**, e fica na fila: a vaga
+    não pode ficar por ocupar só porque o primeiro está sem créditos, e
+    tirá-lo da fila seria castigá-lo por isso.
+    """
+    if session.is_cancelled or session.is_past or not session.spots_left:
+        return None
+
+    campo = get_user_model().campo_saldo(session.credit_type)
+
+    for lugar in session.lista_espera.filter(
+        estado=ListaEspera.A_ESPERA
+    ).select_related("client"):
+        # UPDATE condicional: só desconta se ainda houver saldo. É a mesma
+        # proteção do book(), e aqui também protege de duas vagas abertas ao
+        # mesmo tempo gastarem o mesmo crédito.
+        descontou = (
+            get_user_model().objects
+            .filter(pk=lugar.client_id, **{f"{campo}__gte": 1})
+            .update(**{campo: F(campo) - 1})
+        )
+        if not descontou:
+            continue  # sem saldo: fica na fila, passa-se ao seguinte
+
+        Booking.objects.update_or_create(
+            session=session, client=lugar.client,
+            defaults={"status": Booking.BOOKED},
+        )
+        MovimentoCredito.registar(
+            client=lugar.client,
+            credit_type=session.credit_type,
+            quantidade=-1,
+            motivo=MovimentoCredito.RESERVA,
+            session=session,
+            feito_por=feito_por,
+        )
+        lugar.estado = ListaEspera.INSCRITO
+        lugar.inscrito_em = timezone.now()
+        lugar.save(update_fields=["estado", "inscrito_em"])
+        return lugar
+
+    return None

@@ -47,7 +47,7 @@ espaço para fazer bem, não licença para complicar.
 ```powershell
 venv\Scripts\activate
 python manage.py runserver          # http://127.0.0.1:8000/  (site) e /admin/
-python manage.py test accounts bookings   # 85 testes, todos a passar
+python manage.py test accounts bookings   # 125 testes, todos a passar
 ```
 `makemigrations` + `migrate` só quando os modelos mudam. Ao mexer no CSS, o
 browser cacheia — usar **Ctrl+F5**. Detalhes completos em `GUIA_COMANDOS.md`.
@@ -209,6 +209,17 @@ Sérgio, que é por onde entra o dinheiro). Sempre **dentro da transação que
 alterou o saldo**, para não haver como ficar um sem o outro. No admin é
 **só de leitura** — um livro que se pode editar não resolve discussões.
 
+**`bookings.ListaEspera`** — a fila de quem quer entrar numa aula cheia
+(`session`, `client`, `estado`, `created_at`, `inscrito_em`, `avisado_em`).
+Entrar na fila **não** gasta créditos; a ordem da fila é a ordem de chegada
+(`ordering = ["created_at"]`). Quando abre vaga,
+`promover_da_lista_de_espera(session)` faz subir o primeiro **com saldo** —
+quem não tem é saltado e **fica** na fila (a vaga não pode ficar por ocupar,
+e tirá-lo seria castigá-lo por estar sem créditos). Chamada dentro da
+transação que libertou a vaga, no `cancel_booking`. Quem sobe fica
+`INSCRITO` com `avisado_em` vazio: é o que alimenta o ecrã de avisos do
+Sérgio (secção 7), porque **a app não avisa ninguém sozinha**.
+
 **`bookings.Pack`** — produto de créditos: `name`, `description`,
 **`credit_type`**, `number_of_sessions` (= créditos que dá), `price` (opcional),
 `whatsapp_message`, `order`, `active`.
@@ -261,6 +272,10 @@ Rotas em `bookings/urls.py`; login/logout em `config/urls.py`.
   cancela com UPDATE condicional (evita devolver 2× em duplo-clique) e devolve
   1 crédito ao balde certo.
 - `packages` (`/pacotes/`, login) — packs ativos + link `wa.me` preenchido.
+- `entrar_lista_espera` / `sair_lista_espera` (POST, login) — a fila das
+  aulas cheias. Ambas voltam ao horário **no dia da aula** (`_voltar_ao_horario`):
+  o horário abre sempre em hoje, e sem isso o aluno entrava na fila de uma
+  aula de quinta e ficava a olhar para "não há sessões marcadas para este dia".
 - `privacidade` (`/privacidade/`) — a política. **Sem login**, de propósito:
   tem de se poder ler antes de decidir criar conta. Os dados do responsável
   vêm das definições; enquanto faltarem, a página diz que falta preencher.
@@ -353,6 +368,15 @@ créditos que a paga). **Nenhum caminho desta página apaga aulas**: apagar
 levaria as marcações atrás em cascata e desinscrevia toda a gente sem aviso.
 Para destruir uma aula existe o botão "Cancelar esta aula".
 
+**Lista de espera (`ListaEsperaAdmin`)** — o ecrã **"quem falta avisar"**.
+Quando alguém sobe da fila fica inscrito sem saber: a app não manda
+mensagens, por isso esta lista é o aviso ao Sérgio. Abre já filtrada por
+quem falta avisar (`PorAvisarFilter`, que deita fora o "Todos" do Django —
+aqui ele daria a mesma lista e faria duvidar do que se está a ver); clicar no
+número abre o WhatsApp; a ação **"Marcar como avisado"** tira a linha dali.
+Não se acrescentam entradas por aqui (entra-se na fila pelo site) e o aluno,
+a aula e as datas são só de leitura — são o registo do que aconteceu.
+
 **Utilizadores (`accounts/admin.py`)** — 3 saldos editáveis na lista
 (`list_editable`), filtro "Faz anos hoje" (`BirthdayTodayFilter`), **sem remoção
 em massa** (`get_actions` remove `delete_selected`), sem campos de grupos/
@@ -440,7 +464,7 @@ permissões na ficha (só um superuser).
 
 ## 10. Testes
 
-**99 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
+**125 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
 throttle de login, normalização/registo/login por telemóvel, isolamento de
 créditos por tipo, reembolsos (cancelar sessão, apagar sessão/marcação, cancelar
 reserva), filtros e ações do admin de Sessões, coluna Telemóvel, gerador do
@@ -505,10 +529,10 @@ admin (360/390/768/1024/1400px); throttle de login; recuperação via WhatsApp;
    permissões porque foi desenhado para **um** superuser. Falta decidir o
    que o Sérgio pode e não pode fazer, e dar-lhe um ecrã para isso que não
    seja o painel de permissões do Django (dezenas de checkboxes em inglês).
-8. **Lista de espera, ecrã de presenças e lembretes** — pedidos pelo André
-   em set 2026. Os três esbarram no mesmo: **a app não tem como avisar
-   ninguém** (sem email, sem WhatsApp na app, sem notificações). Decidir o
-   canal ANTES de construir — ver `PENDENTES.md`.
+8. **Ecrã de presenças e lembretes** — a **lista de espera ficou feita**
+   (set 2026). Os que faltam esbarram no mesmo: **a app não avisa ninguém**.
+   O caminho já escolhido para a lista de espera serve de padrão: a app
+   junta quem tem de ser avisado num ecrã, e o Sérgio manda a mensagem.
 9. Mini-guia do admin para o Sérgio (formação de entrega).
 
 *(Ficaram feitos em set 2026: o **rasto dos créditos** — `MovimentoCredito`,
