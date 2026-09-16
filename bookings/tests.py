@@ -1774,6 +1774,24 @@ class InstalarNoTelemovelTests(TestCase):
         html = self.cliente.get(reverse("home")).content.decode()
         self.assertIn('rel="manifest"', html)
 
+    def test_o_worker_nao_se_regista_em_desenvolvimento(self):
+        """
+        Em DEBUG o worker não é registado, e isso é deliberado.
+
+        Em produção o WhiteNoise dá nomes com hash aos estáticos, por isso um
+        ficheiro alterado tem endereço novo e a cache nunca serve o antigo.
+        Em desenvolvimento não há hash: o worker guardava o CSS e continuava
+        a servi-lo depois de o ficheiro mudar. Custou uma hora a descobrir.
+        """
+        with self.settings(DEBUG=True):
+            html = self.cliente.get(reverse("home")).content.decode()
+        self.assertNotIn("serviceWorker.register", html)
+
+    def test_o_worker_regista_se_em_producao(self):
+        with self.settings(DEBUG=False):
+            html = self.cliente.get(reverse("home")).content.decode()
+        self.assertIn("serviceWorker.register", html)
+
     def test_o_service_worker_e_servido_da_raiz(self):
         resposta = self.client.get("/sw.js")
         self.assertEqual(resposta.status_code, 200)

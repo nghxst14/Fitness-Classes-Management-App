@@ -8,8 +8,11 @@
   </div>
 {% endblock %}
 
+{% comment %}
+  Sem <h1>: o admin já escreve um a partir do `title` do contexto.
+{% endcomment %}
 {% block content %}
-  <h1>Aulas de amanhã &mdash; {{ amanha|date:"l, d/m/Y" }}</h1>
+  <p class="help">{{ amanha|date:"l, d/m/Y" }}</p>
 
   {% if aulas %}
     <p class="help">

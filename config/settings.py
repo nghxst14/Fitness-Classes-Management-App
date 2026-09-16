@@ -73,6 +73,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                # Dá o DEBUG aos templates (ver bookings/context_processors.py).
+                "bookings.context_processors.definicoes",
             ],
         },
     },

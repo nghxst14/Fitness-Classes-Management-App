@@ -9,8 +9,11 @@
   </div>
 {% endblock %}
 
+{% comment %}
+  Sem <h1> aqui: o admin já escreve um a partir do `title` do contexto
+  ("Histórico — Nome"). Um segundo dava dois títulos seguidos.
+{% endcomment %}
 {% block content %}
-  <h1>{{ aluno }}</h1>
   <p class="help">{{ aluno.username }}</p>
 
   <h2>Sessões disponíveis agora</h2>
@@ -26,7 +29,8 @@
       Cada linha é uma alteração de saldo. É esta a resposta à pergunta
       &laquo;comprei X, fui a Y, porque é que tenho Z?&raquo;.
     </p>
-    <table style="width:100%; max-width:860px;">
+    <div class="tabela-rolavel">
+    <table style="width:100%; min-width:720px;">
       <thead>
         <tr>
           <th style="text-align:left;">Quando</th>
@@ -55,13 +59,15 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   {% else %}
     <p>Ainda não há movimentos de créditos.</p>
   {% endif %}
 
   <h2>Aulas</h2>
   {% if marcacoes %}
-    <table style="width:100%; max-width:640px;">
+    <div class="tabela-rolavel">
+    <table style="width:100%; min-width:420px;">
       <thead>
         <tr>
           <th style="text-align:left;">Aula</th>
@@ -79,6 +85,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   {% else %}
     <p>Ainda não se inscreveu em nenhuma aula.</p>
   {% endif %}

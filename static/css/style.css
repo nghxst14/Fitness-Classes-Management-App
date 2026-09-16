@@ -618,6 +618,19 @@ h2 {
 
 /* Rodapé */
 .footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 2rem 1rem; border-top: 1px solid var(--line); }
+.footer a { color: var(--muted); text-decoration: underline; }
+.footer a:hover { color: var(--white); }
+/* O link da política é o único alvo tocável do rodapé, e um <a> solto mede
+   a altura do texto — 18px, menos de metade do mínimo de 44px. O min-height
+   com inline-flex é determinístico; com padding ficava dependente do
+   tamanho da letra e da entrelinha (a primeira tentativa deu 43px). */
+.footer a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 0.5rem;
+}
 /* Aula que já decorreu: fica no ecrã (confirma ao aluno que existiu) mas
    recua para segundo plano. Sem isto tem o mesmo peso visual de uma aula
    reservável — a mesma fotografia, o mesmo tamanho — e o olho não distingue

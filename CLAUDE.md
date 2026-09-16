@@ -47,7 +47,7 @@ espaço para fazer bem, não licença para complicar.
 ```powershell
 venv\Scripts\activate
 python manage.py runserver          # http://127.0.0.1:8000/  (site) e /admin/
-python manage.py test accounts bookings   # 151 testes, todos a passar
+python manage.py test accounts bookings   # 153 testes, todos a passar
 python -m ruff check .                    # linter (configurado no pyproject.toml)
 ```
 As ferramentas de desenvolvimento (o **ruff**) estão no `requirements-dev.txt`,
@@ -491,6 +491,19 @@ permissões na ficha (só um superuser).
   Login/registo usam `base_auth.html`.
 - **Alvos de toque de 44px** em ecrãs estreitos (Apple HIG). No admin ficaram
   mais contidos (34-40px): é uma ferramenta densa e 44px desproporcionava-a.
+  Medir com `min-height`, não com padding — o padding depende do tamanho da
+  letra e da entrelinha, e a primeira tentativa no link do rodapé deu 43px.
+- **O service worker NÃO é registado em DEBUG** (set 2026). Em produção o
+  WhiteNoise dá nomes com hash aos estáticos, por isso um ficheiro alterado
+  tem endereço novo e a cache do worker nunca serve o antigo. Em
+  desenvolvimento não há hash: o worker guardava o CSS e continuava a
+  servi-lo depois de o ficheiro mudar — mexia-se no CSS, recarregava-se, e
+  a página ficava igual. A única pista era a folha servida ter menos bytes
+  do que o ficheiro em disco. Ver `bookings/context_processors.py`.
+- **Tabelas escritas à mão no admin** (histórico, presenças) vão dentro de
+  `.tabela-rolavel` (`admin-extra.css`): rolam na própria caixa em vez de
+  arrastarem a página. As listas do admin já fazem isto sozinhas; as nossas
+  não faziam, e o histórico transbordava 219px a 360px de largura.
 - **Comentários de template:** `{# #}` só numa linha — comentário multi-linha
   vira texto na página. Usar sempre `{% comment %}...{% endcomment %}`.
   (Este erro já ocorreu 2×; verificar sempre no browser após mexer em templates.)
@@ -499,7 +512,7 @@ permissões na ficha (só um superuser).
 
 ## 10. Testes
 
-**151 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
+**153 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
 throttle de login, normalização/registo/login por telemóvel, isolamento de
 créditos por tipo, reembolsos (cancelar sessão, apagar sessão/marcação, cancelar
 reserva), filtros e ações do admin de Sessões, coluna Telemóvel, gerador do

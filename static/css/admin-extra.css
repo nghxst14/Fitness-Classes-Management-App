@@ -228,3 +228,17 @@
     text-align: center;
   }
 }
+
+/* Tabelas das páginas que fizemos à mão (histórico do aluno, presenças).
+   Rolam DENTRO da própria caixa em vez de arrastarem a página inteira na
+   horizontal — que é o que acontecia no histórico a 360px: a tabela de sete
+   colunas media 564px e empurrava tudo, cabeçalho incluído.
+
+   As listas do próprio admin já têm este comportamento; estas não tinham
+   porque o HTML é nosso. O `min-width` na tabela é o que a obriga a manter
+   as colunas legíveis em vez de as esmagar até não se lerem. */
+.tabela-rolavel {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
