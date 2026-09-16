@@ -442,10 +442,15 @@ permissões na ficha (só um superuser).
   contagem usa a **mesma chave** do login do site, de propósito: as duas
   portas dão à mesma conta e alternar entre elas não pode render o dobro das
   tentativas. Vai passar a haver mais do que um administrador (ver secção 11).
-- **Gap que fica:** a cache do throttle é a de memória do processo. Num
-  deploy com vários workers, cada um conta as suas tentativas; e um redeploy
-  limpa tudo. Resolve-se apontando `CACHES` para Redis ou para a tabela de
-  cache do Django.
+- **A cache do travão vive na base de dados**, não na memória do processo
+  (`CACHES` → `DatabaseCache`, tabela `cache_do_travao`). Com a cache de
+  memória, cada worker do gunicorn contava as suas tentativas — cinco
+  workers davam cinco vezes mais tentativas antes de bloquear — e um
+  redeploy limpava tudo: o travão parecia existir e quase não travava.
+  Escolheu-se a tabela em vez de Redis por ser a mesma base de dados que já
+  existe, sem serviço nem custo novos. A tabela é criada por **migração**
+  (`accounts/0005_cache_do_travao.py`), para não depender de ninguém se
+  lembrar de um comando no deploy.
 - **RGPD** (set 2026): política em `/privacidade/` (aberta a quem não tem
   conta — tem de se poder ler antes de aceitar), consentimento obrigatório no
   registo com a data guardada em `User.consentimento_em` (a prova; só de
@@ -542,8 +547,12 @@ personalizado (cancelar/reativar por aula, filtros checkbox, coluna Inscritos e
 Telemóvel, widget de hora, seta Voltar, botão Limpar, edição em linha nas
 Sessões); tema visual RESTART NOW com faixa de saldos e selos por tipo;
 etiquetas de partilha e favicon; responsividade verificada em todo o site e
-admin (360/390/768/1024/1400px); throttle de login; recuperação via WhatsApp;
-85 testes; GitHub ligado (privado).
+admin (360/390/768/1024/1400px); throttle de login nas duas portas (site e
+`/admin/`), com a contagem na base de dados; recuperação via WhatsApp; base
+de RGPD (política, consentimento, apagamento); lista de espera com o ecrã de
+avisos; presenças, histórico do aluno e aulas de amanhã; vista de semana;
+instalar no telemóvel (PWA); linter e integração contínua;
+**153 testes**; GitHub ligado (privado).
 
 **POR FAZER (ver `PENDENTES.md` para o detalhe):**
 1. **Info do Sérgio sobre pacotes** — nomes/nº de sessões/`credit_type` reais;
