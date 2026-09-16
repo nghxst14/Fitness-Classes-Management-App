@@ -1805,3 +1805,81 @@ class InstalarNoTelemovelTests(TestCase):
     def test_o_service_worker_nao_precisa_de_login(self):
         # É pedido pelo browser sem sessão; atrás de login nunca registaria.
         self.assertEqual(Client().get("/sw.js").status_code, 200)
+
+
+class LembretesTests(TestCase):
+    """
+    O ecrã das aulas de amanhã, para o Sérgio avisar quem vai.
+
+    Mesmo princípio da lista de espera: a app não manda mensagens, junta a
+    informação e ele manda pelo WhatsApp. Um lembrete que ficasse à espera
+    que o aluno abrisse o site não era um lembrete.
+    """
+
+    def setUp(self):
+        chefe = User.objects.create_superuser(username="chefe", password="x")
+        self.painel = Client()
+        self.painel.force_login(chefe)
+        self.servico = ServiceType.objects.create(
+            name="Aula", default_capacity=10, credit_type=CreditType.SMALL_GROUP
+        )
+        self.url = reverse("admin:bookings_session_lembretes")
+
+    def _aula(self, daqui_a_dias, hora=10):
+        # Hora fixa do dia, em hora local, para não escorregar de dia.
+        dia = timezone.localdate() + timedelta(days=daqui_a_dias)
+        quando = timezone.make_aware(
+            datetime.combine(dia, time(hora, 0)),
+            ZoneInfo(settings.TIME_ZONE),
+        )
+        return Session.objects.create(
+            service_type=self.servico, start=quando,
+            duration_minutes=60, capacity=10,
+        )
+
+    def _inscrever(self, aula, numero, nome="Ana"):
+        aluno = User.objects.create_user(
+            username=numero, password="x", first_name=nome, sessoes_sg=5
+        )
+        Booking.objects.create(session=aula, client=aluno)
+        return aluno
+
+    def test_mostra_as_aulas_de_amanha(self):
+        amanha = self._aula(1)
+        self._inscrever(amanha, "913000051")
+        html = self.painel.get(self.url).content.decode()
+        self.assertIn("913000051", html)
+
+    def test_nao_mostra_as_de_hoje_nem_de_depois_de_amanha(self):
+        self._inscrever(self._aula(0, hora=23), "913000052")
+        self._inscrever(self._aula(2), "913000053")
+        html = self.painel.get(self.url).content.decode()
+        self.assertNotIn("913000052", html)
+        self.assertNotIn("913000053", html)
+
+    def test_nao_mostra_aulas_canceladas(self):
+        aula = self._aula(1)
+        self._inscrever(aula, "913000054")
+        aula.is_cancelled = True
+        aula.save()
+        html = self.painel.get(self.url).content.decode()
+        self.assertNotIn("913000054", html)
+
+    def test_nao_mostra_quem_cancelou_a_reserva(self):
+        aula = self._aula(1)
+        aluno = self._inscrever(aula, "913000055")
+        Booking.objects.filter(session=aula, client=aluno).update(
+            status=Booking.CANCELLED
+        )
+        html = self.painel.get(self.url).content.decode()
+        self.assertNotIn("913000055", html)
+
+    def test_o_numero_abre_o_whatsapp(self):
+        self._inscrever(self._aula(1), "913000056")
+        html = self.painel.get(self.url).content.decode()
+        self.assertIn("https://wa.me/351913000056", html)
+
+    def test_aula_sem_inscritos_nao_enche_a_lista(self):
+        self._aula(1)  # ninguém inscrito
+        aulas = self.painel.get(self.url).context["aulas"]
+        self.assertEqual(aulas, [])

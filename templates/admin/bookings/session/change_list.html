@@ -1,0 +1,17 @@
+{% extends "admin/change_list.html" %}
+
+{% comment %}
+  Botão "Aulas de amanhã" no topo da lista de Sessões.
+
+  Fica aqui porque é uma tarefa de rotina, não uma propriedade de uma aula:
+  o Sérgio abre-o uma vez por dia para avisar quem tem aula no dia seguinte.
+{% endcomment %}
+{% block object-tools-items %}
+  <li>
+    <a href="{% url 'admin:bookings_session_lembretes' %}" class="addlink"
+       style="background:#1c7430;">
+      Aulas de amanhã
+    </a>
+  </li>
+  {{ block.super }}
+{% endblock %}

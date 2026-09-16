@@ -242,7 +242,17 @@ Fica um ícone verde na gaveta das aplicações e abre sem a barra do browser.
 **Vale a pena dizeres isto aos alunos** — é a diferença entre irem ao site e
 terem a app à mão.
 
-### 3.10. Apagar os dados de um aluno (quando ele pede)
+### 3.10. Lembrar os alunos da aula de amanhã
+
+1. Separador **Sessões**.
+2. Botão **"Aulas de amanhã"**, no canto superior direito.
+3. Vês as aulas de amanhã e quem está inscrito em cada uma. Clica num número
+   para abrir a conversa no WhatsApp.
+
+Aulas sem ninguém inscrito não aparecem. A app não manda nada sozinha — o
+lembrete é teu, e é isso que mantém o contacto pessoal com os alunos.
+
+### 3.11. Apagar os dados de um aluno (quando ele pede)
 
 Um aluno tem o direito de pedir que os dados dele sejam apagados, e tu és
 obrigado a fazê-lo. É raro, mas vai acontecer um dia.
@@ -566,7 +576,8 @@ Para não andares à procura:
   lembretes antes das aulas. Tudo o que for avisar é pelo WhatsApp, por ti.
   Onde há alguém a avisar, a app junta-o numa lista para ti — é o caso do
   separador **Lista de espera** (ver 5, "aula cheia").
-- **Não há lembretes automáticos** da aula do dia seguinte.
+- **Não há lembretes automáticos** — mas há o botão **"Aulas de amanhã"**
+  (nas Sessões), que te mostra quem avisar (ver 3.11).
 - **O aluno não pode mudar a password sozinho** — tem de te pedir.
 - **O aluno não vê o histórico** das aulas que já fez, só as futuras. Tu vês
   (ver 3.7).

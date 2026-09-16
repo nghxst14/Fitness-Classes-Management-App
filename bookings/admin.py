@@ -289,8 +289,52 @@ class SessionAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.presencas_view),
                 name="bookings_session_presencas",
             ),
+            path(
+                "lembretes/",
+                self.admin_site.admin_view(self.lembretes_view),
+                name="bookings_session_lembretes",
+            ),
         ]
         return rotas + super().get_urls()
+
+    def lembretes_view(self, request):
+        """
+        Quem tem aula amanhã, para o Sérgio avisar pelo WhatsApp.
+
+        Mesmo princípio da lista de espera: a app não manda mensagens
+        nenhumas, junta a informação e ele manda. Um lembrete que ficasse à
+        espera que o aluno abrisse o site não seria um lembrete.
+
+        Só **amanhã**: hoje já não dá jeito avisar e depois de amanhã ainda
+        vai a tempo de mudar. Aulas sem ninguém inscrito não aparecem — não
+        há lá quem avisar.
+        """
+        amanha = timezone.localdate() + timedelta(days=1)
+        sessoes = (
+            Session.objects.filter(start__date=amanha, is_cancelled=False)
+            .select_related("service_type", "location")
+            .order_by("start")
+            .prefetch_related("bookings__client")
+        )
+
+        aulas = []
+        for sessao in sessoes:
+            inscritos = [
+                marcacao.client
+                for marcacao in sessao.bookings.all()
+                if marcacao.status == Booking.BOOKED
+            ]
+            if inscritos:
+                aulas.append({"sessao": sessao, "inscritos": inscritos})
+
+        contexto = {
+            **self.admin_site.each_context(request),
+            "title": "Aulas de amanhã",
+            "amanha": amanha,
+            "aulas": aulas,
+            "opts": self.model._meta,
+        }
+        return render(request, "admin/bookings/session/lembretes.html", contexto)
 
     def presencas_view(self, request, object_id):
         """

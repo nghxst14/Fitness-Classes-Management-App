@@ -1,0 +1,51 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+  <div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Início</a>
+    &rsaquo; <a href="{% url 'admin:bookings_session_changelist' %}">Sessões</a>
+    &rsaquo; Aulas de amanhã
+  </div>
+{% endblock %}
+
+{% block content %}
+  <h1>Aulas de amanhã &mdash; {{ amanha|date:"l, d/m/Y" }}</h1>
+
+  {% if aulas %}
+    <p class="help">
+      Clica num número para abrir a conversa no WhatsApp. A app não manda
+      mensagens sozinha &mdash; o lembrete é teu.
+    </p>
+
+    {% for a in aulas %}
+      <h2 style="margin-top:1.4rem;">
+        {{ a.sessao.start|time:"H:i" }} &middot;
+        {{ a.sessao.title|default:a.sessao.service_type.name }}
+        {% if a.sessao.location %}&middot; {{ a.sessao.location.name }}{% endif %}
+      </h2>
+      <ul>
+        {% for aluno in a.inscritos %}
+          <li style="padding:.25rem 0;">
+            {{ aluno.get_full_name|default:aluno.username }}
+            &mdash;
+            {% if aluno.telemovel_whatsapp %}
+              <a href="{{ aluno.telemovel_whatsapp }}" target="_blank" rel="noopener">
+                {{ aluno.username }}
+              </a>
+            {% else %}
+              {{ aluno.username }}
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endfor %}
+  {% else %}
+    <p>Não há ninguém inscrito em aulas de amanhã.</p>
+  {% endif %}
+
+  <div class="submit-row">
+    <a href="{% url 'admin:bookings_session_changelist' %}" class="closelink">
+      Voltar às Sessões
+    </a>
+  </div>
+{% endblock %}

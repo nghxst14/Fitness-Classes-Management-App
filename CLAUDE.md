@@ -47,7 +47,7 @@ espaço para fazer bem, não licença para complicar.
 ```powershell
 venv\Scripts\activate
 python manage.py runserver          # http://127.0.0.1:8000/  (site) e /admin/
-python manage.py test accounts bookings   # 145 testes, todos a passar
+python manage.py test accounts bookings   # 151 testes, todos a passar
 python -m ruff check .                    # linter (configurado no pyproject.toml)
 ```
 As ferramentas de desenvolvimento (o **ruff**) estão no `requirements-dev.txt`,
@@ -397,6 +397,12 @@ lista de Utilizadores. Existe para a pergunta que o Sérgio mais vai receber:
 "comprei 10, fui a 3, porque é que tenho 5?". Respeita a regra das contas de
 admin — o Sérgio não vê o histórico de um administrador.
 
+**Aulas de amanhã (`lembretes_view`)** — botão no topo da lista de Sessões.
+Mostra quem tem aula no dia seguinte, com o número a abrir o WhatsApp. Só
+amanhã: hoje já não dá jeito avisar, e depois de amanhã ainda vai a tempo.
+Aulas sem inscritos não aparecem — não há lá quem avisar. Mesmo princípio da
+lista de espera: a app junta a informação, o aviso é do Sérgio.
+
 **Lista de espera (`ListaEsperaAdmin`)** — o ecrã **"quem falta avisar"**.
 Quando alguém sobe da fila fica inscrito sem saber: a app não manda
 mensagens, por isso esta lista é o aviso ao Sérgio. Abre já filtrada por
@@ -493,7 +499,7 @@ permissões na ficha (só um superuser).
 
 ## 10. Testes
 
-**145 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
+**151 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
 throttle de login, normalização/registo/login por telemóvel, isolamento de
 créditos por tipo, reembolsos (cancelar sessão, apagar sessão/marcação, cancelar
 reserva), filtros e ações do admin de Sessões, coluna Telemóvel, gerador do
@@ -548,10 +554,7 @@ admin (360/390/768/1024/1400px); throttle de login; recuperação via WhatsApp;
    superuser **`claude-preview`**, os 12 alunos com `(demo)` no apelido, a
    conta `912000000`, e as aulas com `DEMO - apagar antes do deploy` no campo
    de notas.
-6. **Lembretes da aula do dia seguinte** — o que falta do canal de avisos.
-   Segue o padrão já usado na lista de espera: a app junta quem avisar num
-   ecrã e o Sérgio manda a mensagem pelo WhatsApp dele.
-7. **Dar acesso de administrador a mais alguém** — as regras já existem
+6. **Dar acesso de administrador a mais alguém** — as regras já existem
    (quem não é superuser não mexe em contas de admin), mas atribui-se pelo
    painel de permissões do Django, que é denso e em inglês. Se um dia for
    preciso com frequência, vale um ecrã próprio.

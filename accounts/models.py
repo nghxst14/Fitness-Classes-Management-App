@@ -1,3 +1,5 @@
+import re
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
@@ -78,6 +80,19 @@ class User(AbstractUser):
     def phone(self):
         """O telemóvel é o próprio username (identificador de login)."""
         return self.username
+
+    @property
+    def telemovel_whatsapp(self):
+        """
+        Link para abrir a conversa de WhatsApp com esta pessoa, ou vazio.
+
+        Vazio quando o username não é um telemóvel português — é o caso das
+        contas de administração ("admin"), que não devem virar um link que
+        abre uma conversa com um número que não existe.
+        """
+        if not re.fullmatch(r"9\d{8}", self.username or ""):
+            return ""
+        return f"https://wa.me/351{self.username}"
 
     @staticmethod
     def campo_saldo(credit_type):
