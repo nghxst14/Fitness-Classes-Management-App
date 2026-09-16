@@ -56,6 +56,60 @@ class UserAdmin(BaseUserAdmin):
         acoes.pop("delete_selected", None)
         return acoes
 
+    # --- Quem mexe em quem ----------------------------------------------
+    # Decisão de set 2026: vai haver mais do que um administrador — o André
+    # para manutenção e o Sérgio para o dia-a-dia. O Sérgio precisa de gerir
+    # alunos, créditos e aulas, mas NÃO de mexer em contas de administração:
+    # apagar a conta do André, ou promover alguém sem querer, são enganos
+    # sem volta. Quem é superuser (o André) continua a poder tudo.
+    #
+    # As três portas são fechadas em conjunto de propósito: esconder o campo
+    # sem proibir a ficha deixaria o caminho aberto a quem escrevesse o
+    # endereço à mão.
+
+    @staticmethod
+    def _e_conta_de_admin(utilizador):
+        return bool(utilizador and (utilizador.is_staff or utilizador.is_superuser))
+
+    def get_queryset(self, request):
+        """As contas de administração nem aparecem na lista ao Sérgio."""
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(is_staff=False, is_superuser=False)
+
+    def has_change_permission(self, request, obj=None):
+        if self._e_conta_de_admin(obj) and not request.user.is_superuser:
+            return False
+        return super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if self._e_conta_de_admin(obj) and not request.user.is_superuser:
+            return False
+        return super().has_delete_permission(request, obj)
+
+    def get_fieldsets(self, request, obj=None):
+        """
+        Esconde os campos que criam administradores de quem não é superuser.
+
+        Sem isto, o Sérgio podia dar `is_staff` a um aluno e criar um
+        administrador sem dar por isso — o mesmo poder pela porta do lado.
+        """
+        fieldsets = super().get_fieldsets(request, obj)
+        if request.user.is_superuser:
+            return fieldsets
+
+        limpos = []
+        for titulo, opcoes in fieldsets:
+            opcoes = dict(opcoes)
+            opcoes["fields"] = tuple(
+                campo for campo in opcoes.get("fields", ())
+                if campo not in ("is_staff", "is_superuser")
+            )
+            if opcoes["fields"]:
+                limpos.append((titulo, opcoes))
+        return limpos
+
     def save_model(self, request, obj, form, change):
         """
         Regista no livro de movimentos os saldos que o Sérgio ajusta à mão.

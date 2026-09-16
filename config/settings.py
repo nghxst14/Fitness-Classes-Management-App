@@ -169,6 +169,26 @@ if not DEBUG and not os.environ.get("SERGIO_WHATSAPP"):
     )
 
 
+# --- Cache --------------------------------------------------------------------
+# Guarda a contagem de tentativas falhadas do login (ver accounts/views.py).
+#
+# NÃO pode ser a cache de memória do processo (o default do Django): em
+# produção o gunicorn corre vários workers e cada um teria a sua contagem —
+# cinco workers dariam cinco vezes mais tentativas antes de bloquear —, e um
+# redeploy limparia tudo. O travão pareceria existir e quase não travaria.
+#
+# Usa-se a tabela na base de dados em vez de Redis: é a mesma base de dados
+# que já existe, não acrescenta serviço nem custo, e o volume aqui é de
+# algumas linhas. A tabela é criada por migração, por isso não é preciso
+# nenhum comando extra no deploy nem nos testes.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "cache_do_travao",
+    }
+}
+
+
 # --- RGPD (política de privacidade) ------------------------------------------
 # Quem responde legalmente pelos dados dos alunos é o SÉRGIO (o negócio é
 # dele), não quem fez a app. Estes três valores são o que a política precisa
