@@ -92,10 +92,34 @@ O que falta desenhar (o código assume hoje **um** superuser, e o
 - um ecrã para atribuir esse acesso que não seja o painel de permissões do
   Django — dezenas de checkboxes técnicas em inglês, o oposto de simples.
 
+## Extras / polimento (nada disto bloqueia o lançamento)
+
+- **Ícone do PWA a 512px está ampliado.** Os ícones de instalação no
+  telemóvel (`static/img/brand/icon-*.png`) foram gerados a partir do
+  `favicon.png`, que é 256×256. O de 192 vem de uma redução e fica nítido;
+  o de 512 é uma ampliação e tem as curvas ligeiramente serrilhadas. Vê-se
+  pouco (a 512 o ícone só aparece no ecrã de arranque), mas resolve-se de
+  vez com o **logótipo em SVG ou numa resolução maior** — com isso, regerar
+  é um comando. Falta ao André arranjar o original com o Sérgio ou com quem
+  desenhou a marca.
+- **Tempo dos testes** — passou de ~2 para ~7 minutos (set 2026). Parte é o
+  triplo de testes; parte é a cache ter passado para a base de dados, que é
+  mais lenta do que a memória. Se incomodar, a saída é os testes usarem a
+  cache de memória (com o teste que guarda essa decisão a ser adaptado).
+- **O aluno não vê o próprio histórico** — só o Sérgio o vê, no painel. Não
+  é lacuna legal (o RGPD aceita resposta a pedido), mas é a pergunta natural
+  a seguir. Por decidir.
+
 ## Outros pendentes
 
-- **Trocar `SERGIO_WHATSAPP`** em `config/settings.py` pelo número real do
-  Sérgio (agora está o número de teste do André).
+- **`SERGIO_WHATSAPP` no Railway** — o número real do Sérgio é
+  **`351913621166`** (+351 913 621 166), dado pelo André em set 2026. Põe-se
+  na variável de ambiente do Railway, **não** no código: o valor por omissão
+  em `settings.py` continua a ser o número de TESTE do André, de propósito.
+  Se o real fosse o default, cada aula de teste, cada clique num botão de
+  pacote e cada demonstração local mandariam mensagens verdadeiras ao
+  Sérgio. O sítio onde o número real tem de estar é a produção, e é lá que
+  a app o exige (recusa arrancar sem ele).
 - **Dados da política de privacidade (RGPD)** — as variáveis
   `RGPD_RESPONSAVEL`, `RGPD_CONTACTO` e `RGPD_PRAZO_ANOS`. **Só o Sérgio as
   pode dar** (é ele o responsável legal pelos dados dos alunos) e a app

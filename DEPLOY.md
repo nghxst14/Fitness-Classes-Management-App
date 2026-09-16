@@ -55,7 +55,7 @@ adiciona estas (ver também `.env.example`):
 | `DJANGO_DEBUG` | `False` |
 | `DJANGO_ALLOWED_HOSTS` | o domínio que o Railway te der (ex.: `nome.up.railway.app`) |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | o mesmo domínio com `https://` à frente |
-| `SERGIO_WHATSAPP` | o número real do Sérgio (ex.: `351XXXXXXXXX`) |
+| `SERGIO_WHATSAPP` | `351913621166` (o número real do Sérgio) |
 | `RGPD_RESPONSAVEL` | nome ou entidade do Sérgio, como se identifica legalmente |
 | `RGPD_CONTACTO` | email ou telemóvel para pedidos sobre dados pessoais |
 | `RGPD_PRAZO_ANOS` | anos que guarda os dados de quem deixa de ser aluno (ex.: `3`) |

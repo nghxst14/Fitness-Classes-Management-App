@@ -152,7 +152,10 @@ LOGIN_URL = "login"
 
 # --- WhatsApp -----------------------------------------------------------------
 # Número (com indicativo, sem "+" nem espaços) para os links wa.me dos pacotes
-# e da ajuda com a password. Em produção, definir a variável SERGIO_WHATSAPP
+# e da ajuda com a password. O número REAL do Sérgio é 351913621166 e vive na
+# variável de ambiente do Railway — não aqui, de propósito: como default, cada
+# teste local e cada demonstração mandariam mensagens verdadeiras para ele.
+# Em produção, definir a variável SERGIO_WHATSAPP
 # com o número real do Sérgio. O default é o número de TESTE do André.
 SERGIO_WHATSAPP = os.environ.get("SERGIO_WHATSAPP", "351939339857")
 
