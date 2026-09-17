@@ -59,6 +59,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Depois do AuthenticationMiddleware, que é quem põe o request.user:
+    # sem ele, este não teria como saber quem está a pedir a página.
+    "accounts.middleware.ForcarMudancaDePassword",
 ]
 
 ROOT_URLCONF = "config.urls"

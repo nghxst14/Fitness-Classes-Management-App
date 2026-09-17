@@ -1,12 +1,15 @@
-from django.contrib import admin
+from urllib.parse import quote
+
+from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.core.exceptions import PermissionDenied
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
 
 from .models import CreditType, User
+from .passwords import gerar_password_provisoria
 from .whatsapp import link_whatsapp
 
 
@@ -98,6 +101,11 @@ class UserAdmin(BaseUserAdmin):
                 self.admin_site.admin_view(self.historico_view),
                 name="accounts_user_historico",
             ),
+            path(
+                "<path:object_id>/password-provisoria/",
+                self.admin_site.admin_view(self.password_provisoria_view),
+                name="accounts_user_password_provisoria",
+            ),
         ]
         return rotas + super().get_urls()
 
@@ -132,6 +140,58 @@ class UserAdmin(BaseUserAdmin):
             "opts": self.model._meta,
         }
         return render(request, "admin/accounts/user/historico.html", contexto)
+
+    def password_provisoria_view(self, request, object_id):
+        """
+        Gera uma password provisória e mostra-a ao treinador, uma vez.
+
+        É a resposta ao "esqueci-me da password" que chega pelo WhatsApp.
+        Substitui o formulário do Django, onde o Sérgio teria de inventar
+        uma password — e onde a que ele escolhesse ficava a valer para
+        sempre, se o aluno não a mudasse.
+
+        **Só POST.** Um GET que mudasse a password de alguém era um link
+        capaz de trancar uma conta por engano — bastava o browser fazer
+        prefetch, ou alguém abrir o endereço por curiosidade.
+        """
+        aluno = get_object_or_404(User, pk=object_id)
+        # A mesma regra do resto da ficha: quem não é superuser não mexe em
+        # contas de administração, e uma password é a chave da porta.
+        if not self.has_change_permission(request, aluno):
+            raise PermissionDenied
+        if request.method != "POST":
+            return redirect("admin:accounts_user_change", aluno.pk)
+
+        nova = gerar_password_provisoria()
+        aluno.set_password(nova)
+        aluno.deve_mudar_password = True
+        aluno.save(update_fields=["password", "deve_mudar_password"])
+
+        texto = (
+            f"Olá! A tua password da app RESTART NOW foi reposta.\n\n"
+            f"Telemóvel: {aluno.username}\n"
+            f"Password provisória: {nova}\n\n"
+            "Ao entrares, a app pede-te para escolheres uma nova."
+        )
+        ligacao = ""
+        if aluno.username.isdigit():
+            ligacao = format_html(
+                ' <a href="https://wa.me/351{}?text={}" target="_blank" '
+                'rel="noopener"><b>Mandar pelo WhatsApp</b></a>',
+                aluno.username, quote(texto),
+            )
+        # A password só aparece AQUI e AGORA: fica guardada encriptada, e
+        # nem o painel a consegue voltar a mostrar.
+        self.message_user(
+            request,
+            format_html(
+                "Password provisória de {}: <code><b>{}</b></code> — "
+                "anota-a agora, não volta a aparecer.{}",
+                aluno, nova, ligacao,
+            ),
+            messages.WARNING,
+        )
+        return redirect("admin:accounts_user_change", aluno.pk)
 
     # --- Quem mexe em quem ----------------------------------------------
     # Decisão de set 2026: vai haver mais do que um administrador — o André

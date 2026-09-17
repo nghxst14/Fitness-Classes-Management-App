@@ -347,3 +347,142 @@ class WhatsAppNaFichaTests(TestCase):
         ficha = self._ficha(self.aluno)
         campo = ficha.split("field-whatsapp_na_ficha")[1].split("</div>")[0]
         self.assertIn("Abrir conversa", campo)
+
+
+class PasswordProvisoriaTests(TestCase):
+    """
+    O Sérgio gera uma password provisória; o aluno é obrigado a trocá-la.
+
+    Substitui o formulário do Django, onde ele teria de **inventar** uma
+    password e ditá-la. Assim é um clique, sai aleatória (ninguém põe
+    "12345" a toda a gente) e ele nunca fica a saber a password definitiva
+    de ninguém — só a provisória, que morre no primeiro uso.
+    """
+
+    def setUp(self):
+        self.chefe = User.objects.create_superuser(username="chefe", password="x")
+        self.painel = Client()
+        self.painel.force_login(self.chefe)
+        self.aluno = User.objects.create_user(
+            username="913500500", password="antiga123",
+            first_name="Joana", last_name="Silva",
+        )
+        self.url = reverse("admin:accounts_user_password_provisoria",
+                           args=[self.aluno.pk])
+
+    def test_o_botao_aparece_na_ficha(self):
+        """
+        E tem de estar FORA do formulário principal do admin.
+
+        Os blocos que ficam junto aos campos estão todos dentro do <form> da
+        ficha, e um <form> dentro de outro é descartado pelo browser sem dar
+        erro nenhum: o botão está no template, o teste encontra-o no html, e
+        na página não existe. Foi o que aconteceu à primeira tentativa —
+        daí este teste comparar as posições e não só procurar o texto.
+        """
+        html = self.painel.get(
+            reverse("admin:accounts_user_change", args=[self.aluno.pk])
+        ).content.decode()
+        self.assertIn("Gerar password provisória", html)
+
+        posicao_botao = html.index("password-provisoria/")
+        posicao_form_principal = html.index('id="user_form"')
+        self.assertLess(
+            posicao_botao, posicao_form_principal,
+            "o botão está dentro do formulário do admin: o browser vai "
+            "descartá-lo e ele não aparece na página",
+        )
+
+    def test_gerar_muda_a_password(self):
+        self.painel.post(self.url)
+        self.aluno.refresh_from_db()
+        self.assertFalse(self.aluno.check_password("antiga123"))
+
+    def test_gerar_marca_que_tem_de_mudar(self):
+        self.painel.post(self.url)
+        self.aluno.refresh_from_db()
+        self.assertTrue(self.aluno.deve_mudar_password)
+
+    def test_a_password_e_mostrada_ao_sergio(self):
+        # Ele tem de a poder ler para a mandar; é a única vez que aparece.
+        resposta = self.painel.post(self.url, follow=True)
+        avisos = " ".join(str(m) for m in resposta.context["messages"])
+        self.assertRegex(avisos, r"[a-z0-9]{6,}")
+
+    def test_so_por_post(self):
+        # Um GET não pode mudar a password de ninguém (nem um link visitado
+        # por engano, nem um prefetch do browser).
+        self.painel.get(self.url)
+        self.aluno.refresh_from_db()
+        self.assertTrue(self.aluno.check_password("antiga123"))
+
+    def test_nao_se_gera_para_uma_conta_de_admin(self):
+        # O Sérgio não reinicia a password do André.
+        sergio = User.objects.create_user(
+            username="913111111", password="x", is_staff=True
+        )
+        permissoes = Permission.objects.filter(
+            content_type__app_label="accounts", content_type__model="user"
+        )
+        sergio.user_permissions.set(permissoes)
+        painel_sergio = Client()
+        painel_sergio.force_login(sergio)
+
+        resposta = painel_sergio.post(
+            reverse("admin:accounts_user_password_provisoria",
+                    args=[self.chefe.pk])
+        )
+        self.assertIn(resposta.status_code, (302, 403))
+        self.chefe.refresh_from_db()
+        self.assertTrue(self.chefe.check_password("x"))
+
+
+class MudarPasswordTests(TestCase):
+    """O aluno muda a sua password, e é obrigado a fazê-lo se veio de uma provisória."""
+
+    def setUp(self):
+        self.aluno = User.objects.create_user(
+            username="913500500", password="provisoria1", sessoes_sg=3
+        )
+        self.cliente = Client()
+        self.cliente.force_login(self.aluno)
+        self.url = reverse("mudar_password")
+
+    def _mudar(self, atual="provisoria1", nova="minhanova1"):
+        return self.cliente.post(self.url, {
+            "old_password": atual, "new_password1": nova, "new_password2": nova,
+        })
+
+    def test_o_aluno_pode_mudar_a_sua_password(self):
+        self._mudar()
+        self.aluno.refresh_from_db()
+        self.assertTrue(self.aluno.check_password("minhanova1"))
+
+    def test_mudar_limpa_a_obrigacao(self):
+        self.aluno.deve_mudar_password = True
+        self.aluno.save()
+        self._mudar()
+        self.aluno.refresh_from_db()
+        self.assertFalse(self.aluno.deve_mudar_password)
+
+    def test_quem_tem_de_mudar_e_levado_para_la(self):
+        self.aluno.deve_mudar_password = True
+        self.aluno.save()
+        resposta = self.cliente.get(reverse("schedule"))
+        self.assertRedirects(resposta, self.url)
+
+    def test_quem_tem_de_mudar_ainda_consegue_sair(self):
+        # Ficar preso sem poder sair seria pior do que o problema.
+        self.aluno.deve_mudar_password = True
+        self.aluno.save()
+        resposta = self.cliente.post(reverse("logout"))
+        self.assertNotEqual(resposta.status_code, 500)
+
+    def test_depois_de_mudar_navega_normalmente(self):
+        self.aluno.deve_mudar_password = True
+        self.aluno.save()
+        self._mudar()
+        self.assertEqual(self.cliente.get(reverse("schedule")).status_code, 200)
+
+    def test_quem_nao_tem_de_mudar_nao_e_incomodado(self):
+        self.assertEqual(self.cliente.get(reverse("schedule")).status_code, 200)

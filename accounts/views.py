@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth import views as auth_views
 from django.core.cache import cache
 from django.shortcuts import redirect
+from django.urls import reverse_lazy
 
 from bookings.forms import normalizar_telemovel
 
@@ -111,3 +112,27 @@ def com_travao(view_de_login):
         return resposta
 
     return wrapper
+
+
+class MudarPasswordView(auth_views.PasswordChangeView):
+    """
+    O aluno escolhe uma password nova.
+
+    Pede a atual, como o Django faz por omissão. Quem vem de uma provisória
+    tem-na à mão (acabou de entrar com ela), e para quem está só a trocar a
+    sua é a proteção contra alguém que lhe apanhe o telemóvel desbloqueado.
+
+    Ao gravar, limpa o `deve_mudar_password`: é o que solta o aluno do
+    middleware que o trazia sempre para esta página.
+    """
+
+    template_name = "registration/mudar_password.html"
+    success_url = reverse_lazy("schedule")
+
+    def form_valid(self, form):
+        resposta = super().form_valid(form)
+        if self.request.user.deve_mudar_password:
+            self.request.user.deve_mudar_password = False
+            self.request.user.save(update_fields=["deve_mudar_password"])
+        messages.success(self.request, "Password alterada. Já está a valer.")
+        return resposta

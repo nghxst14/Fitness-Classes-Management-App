@@ -56,6 +56,15 @@ class User(AbstractUser):
         help_text="Marca esta opção para quem dá aulas/sessões.",
     )
     created_at = models.DateTimeField("Criado em", auto_now_add=True)
+    deve_mudar_password = models.BooleanField(
+        "Tem de mudar a password?",
+        default=False,
+        help_text=(
+            "Fica marcado quando o treinador gera uma password provisória. "
+            "Enquanto estiver marcado, o aluno só consegue abrir a página de "
+            "mudar a password — e desmarca-se sozinho quando ele a muda."
+        ),
+    )
     consentimento_em = models.DateTimeField(
         "Aceitou a política de privacidade em",
         null=True,
