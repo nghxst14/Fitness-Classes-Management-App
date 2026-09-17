@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from .models import CreditType, User
+from .whatsapp import link_whatsapp
 
 
 class BirthdayTodayFilter(admin.SimpleListFilter):
@@ -38,6 +39,7 @@ class UserAdmin(BaseUserAdmin):
 
     list_display = (
         "username",
+        "whatsapp",
         "get_full_name",
         "sessoes_sg",
         "sessoes_pt",
@@ -47,6 +49,26 @@ class UserAdmin(BaseUserAdmin):
         "is_staff",
         "historico",
     )
+
+    @admin.display(description="WhatsApp")
+    def whatsapp(self, obj):
+        """
+        O número a abrir a conversa, na lista e na ficha.
+
+        É na lista que o Sérgio dá os créditos; poder avisar o aluno dali
+        poupa-lhe abrir a ficha só para copiar o número. Contas de staff não
+        são telemóveis e aparecem sem link.
+
+        Mostra "conversar" e não o número: aqui ao lado, a coluna
+        Utilizador já é o telemóvel.
+        """
+        return link_whatsapp(obj, etiqueta="conversar")
+
+    @admin.display(description="Falar com o aluno")
+    def whatsapp_na_ficha(self, obj):
+        if not obj.pk:
+            return "—"  # ecrã de criar: ainda não há número gravado
+        return link_whatsapp(obj, etiqueta="Abrir conversa no WhatsApp")
 
     @admin.display(description="Histórico")
     def historico(self, obj):
@@ -208,7 +230,10 @@ class UserAdmin(BaseUserAdmin):
 
     fieldsets = (
         (None, {"fields": ("username", "password")}),
-        ("Dados pessoais", {"fields": ("first_name", "last_name", "birth_date")}),
+        (
+            "Dados pessoais",
+            {"fields": ("first_name", "last_name", "birth_date", "whatsapp_na_ficha")},
+        ),
         (
             "Sessões disponíveis",
             {"fields": ("sessoes_sg", "sessoes_pt", "sessoes_hybrid")},
@@ -234,7 +259,7 @@ class UserAdmin(BaseUserAdmin):
             },
         ),
     )
-    readonly_fields = ("created_at", "consentimento_em")
+    readonly_fields = ("created_at", "consentimento_em", "whatsapp_na_ficha")
 
     add_fieldsets = (
         (

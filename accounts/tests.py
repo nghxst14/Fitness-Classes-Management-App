@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 
 from django.conf import settings
@@ -272,3 +273,77 @@ class HistoricoDoAlunoTests(TestCase):
             reverse("admin:accounts_user_historico", args=[andre.pk])
         )
         self.assertIn(resposta.status_code, (302, 403))
+
+
+class WhatsAppNaFichaTests(TestCase):
+    """
+    Abrir a conversa com o aluno a partir da ficha dele.
+
+    O Sérgio abre a ficha para dar créditos e a seguir quer dizer-lhe que já
+    os tem. Sem isto, tinha de copiar o número e procurá-lo no telemóvel.
+    O padrão já existia nas Marcações e na Lista de espera; faltava aqui.
+    """
+
+    def setUp(self):
+        self.chefe = User.objects.create_superuser(username="chefe", password="x")
+        self.painel = Client()
+        self.painel.force_login(self.chefe)
+        self.aluno = User.objects.create_user(
+            username="913500500", password="x",
+            first_name="Joana", last_name="Silva",
+        )
+
+    def _ficha(self, utilizador):
+        return self.painel.get(
+            reverse("admin:accounts_user_change", args=[utilizador.pk])
+        ).content.decode()
+
+    def test_a_ficha_do_aluno_tem_link_de_whatsapp(self):
+        self.assertIn("https://wa.me/351913500500", self._ficha(self.aluno))
+
+    def test_a_lista_tem_link_de_whatsapp(self):
+        # É na lista que ele dá os créditos; avisar dali poupa abrir a ficha.
+        html = self.painel.get(reverse("admin:accounts_user_changelist")).content.decode()
+        self.assertIn("https://wa.me/351913500500", html)
+
+    def test_conta_sem_numero_nao_tem_link(self):
+        # O "chefe" não é um telemóvel: não há conversa para abrir.
+        html = self._ficha(self.chefe)
+        self.assertNotIn("wa.me/351chefe", html)
+        self.assertNotIn(">https://wa.me/", html)
+
+    def test_o_nome_do_aluno_nao_entra_no_javascript(self):
+        # A mesma armadilha da coluna das Marcações: um nome com aspas não
+        # pode partir a string do confirm e injetar código no painel.
+        self.aluno.first_name = 'Jo"><script>x</script>'
+        self.aluno.save()
+        self.assertNotIn("<script>x</script>", self._ficha(self.aluno))
+
+    def test_nao_repete_o_numero_que_ja_esta_ao_lado(self):
+        """
+        Nos Utilizadores o nome de conta É o telemóvel.
+
+        Mostrar o número outra vez na coluna ao lado não acrescenta nada —
+        o link diz o que faz. (Nas Marcações e na Lista de espera continua a
+        mostrar o número: lá a coluna do lado tem o nome, não o número.)
+        """
+        lista = self.painel.get(
+            reverse("admin:accounts_user_changelist")
+        ).content.decode()
+        # A linha da Joana, e não a primeira da tabela: a lista vem ordenada
+        # por nome e o superuser de teste aparece antes dela.
+        linha = [
+            bloco for bloco in lista.split("<tr")
+            if "913500500" in bloco and "field-whatsapp" in bloco
+        ][0]
+        coluna = linha.split('class="field-whatsapp">')[1].split("</td>")[0]
+        # O que se VÊ, não o html: o número tem de estar no href (é o link),
+        # o que não pode é aparecer escrito outra vez ao lado do que já está
+        # na coluna Utilizador.
+        visivel = re.sub(r"<[^>]+>", "", coluna).strip()
+        self.assertEqual(visivel, "conversar")
+
+    def test_a_ficha_diz_o_que_o_link_faz(self):
+        ficha = self._ficha(self.aluno)
+        campo = ficha.split("field-whatsapp_na_ficha")[1].split("</div>")[0]
+        self.assertIn("Abrir conversa", campo)

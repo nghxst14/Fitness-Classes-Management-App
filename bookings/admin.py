@@ -1,4 +1,3 @@
-import re
 from datetime import timedelta
 
 from django import forms
@@ -12,6 +11,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
+
+from accounts.whatsapp import link_whatsapp
 
 from .models import (
     Booking,
@@ -629,28 +630,8 @@ class BookingAdmin(admin.ModelAdmin):
 
     @admin.display(description="Telemóvel")
     def telemovel(self, obj):
-        """
-        O número do aluno; clicar pergunta se quer abrir a conversa no
-        WhatsApp com ele (confirm nativo do browser) e, se sim, abre o
-        wa.me numa aba nova. Contas cujo username não é um número
-        (ex.: admin) aparecem sem link.
-        """
-        numero = obj.client.username
-        if not re.fullmatch(r"9\d{8}", numero):
-            return numero
-        nome = obj.client.get_full_name() or numero
-        # O nome (escolhido pelo aluno no registo) vai num atributo data- e é
-        # lido em runtime com this.dataset.nome — NUNCA interpolado dentro do
-        # JS do onclick. Interpolar no onclick permitia XSS: o escape de HTML
-        # é desfeito pelo browser no contexto do atributo, e um nome com aspas
-        # partia a string do confirm() e injetava código no painel do Sérgio.
-        return format_html(
-            '<a href="https://wa.me/351{}" target="_blank" rel="noopener" '
-            'data-nome="{}" '
-            "onclick=\"return confirm('Abrir conversa no WhatsApp com ' "
-            "+ this.dataset.nome + '?')\">{}</a>",
-            numero, nome, numero,
-        )
+        """O número do aluno, a abrir a conversa no WhatsApp."""
+        return link_whatsapp(obj.client)
 
     def lookup_allowed(self, lookup, value, request=None):
         # Autoriza o filtro por sessão vindo da coluna "Inscritos" da lista
@@ -870,28 +851,6 @@ class WeeklyProgramSlotAdmin(admin.ModelAdmin):
             self.message_user(request, f"{cabecalho} Nada a fazer.", messages.INFO)
 
 
-def _link_whatsapp(utilizador, texto_do_confirm):
-    """
-    O número do aluno como link para o WhatsApp.
-
-    O nome vai num atributo `data-` e é lido em runtime — nunca interpolado
-    dentro do JS do onclick. Interpolar aí permitia XSS: o browser desfaz o
-    escape de HTML no contexto do atributo, e um nome com aspas partia a
-    string e injetava código no painel do Sérgio (já aconteceu uma vez, na
-    coluna das Marcações).
-    """
-    numero = utilizador.username
-    if not re.fullmatch(r"9\d{8}", numero):
-        return numero
-    nome = utilizador.get_full_name() or numero
-    return format_html(
-        '<a href="https://wa.me/351{}" target="_blank" rel="noopener" '
-        'data-nome="{}" '
-        "onclick=\"return confirm('{} ' + this.dataset.nome + '?')\">{}</a>",
-        numero, nome, texto_do_confirm, numero,
-    )
-
-
 class PorAvisarFilter(admin.SimpleListFilter):
     """
     O filtro que interessa neste ecrã: quem já está inscrito e ainda não sabe.
@@ -953,7 +912,7 @@ class ListaEsperaAdmin(admin.ModelAdmin):
 
     @admin.display(description="Telemóvel")
     def telemovel(self, obj):
-        return _link_whatsapp(obj.client, "Avisar no WhatsApp:")
+        return link_whatsapp(obj.client, "Avisar no WhatsApp:")
 
     @admin.display(description="Entrou na fila", ordering="created_at")
     def entrou(self, obj):
