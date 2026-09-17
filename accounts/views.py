@@ -134,5 +134,5 @@ class MudarPasswordView(auth_views.PasswordChangeView):
         if self.request.user.deve_mudar_password:
             self.request.user.deve_mudar_password = False
             self.request.user.save(update_fields=["deve_mudar_password"])
-        messages.success(self.request, "Password alterada. Já está a valer.")
+        messages.success(self.request, "Password alterada.")
         return resposta
