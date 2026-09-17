@@ -1297,6 +1297,27 @@ class PrivacidadeTests(TestCase):
         # A aula em si não desaparece: é do Sérgio, não do aluno.
         self.assertTrue(Session.objects.filter(pk=aula.pk).exists())
 
+    def test_contacto_numerico_fica_clicavel_e_legivel(self):
+        """
+        Um número de contacto tem de abrir o WhatsApp, não ser copiado à mão.
+
+        O RGPD exige um contacto acessível para o aluno pedir os dados ou o
+        apagamento. "351913621166" corrido obriga a selecionar e copiar num
+        telemóvel, que é onde isto vai ser lido.
+        """
+        with self.settings(RGPD_CONTACTO="351913621166"):
+            html = self.client.get(reverse("privacidade")).content.decode()
+
+        self.assertIn("https://wa.me/351913621166", html)
+        self.assertIn("+351 913 621 166", html)
+
+    def test_contacto_por_email_nao_finge_ser_whatsapp(self):
+        with self.settings(RGPD_CONTACTO="geral@exemplo.pt"):
+            html = self.client.get(reverse("privacidade")).content.decode()
+
+        self.assertIn("geral@exemplo.pt", html)
+        self.assertNotIn("wa.me/geral", html)
+
 
 class ListaEditavelDoAdminTests(TestCase):
     """

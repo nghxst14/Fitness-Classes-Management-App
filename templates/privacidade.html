@@ -71,7 +71,9 @@
   </ul>
   <p>
     Para qualquer um destes pedidos, fala com
-    {% if contacto %}<strong>{{ contacto }}</strong>{% else %}
+    {% if contacto_url %}
+      <a href="{{ contacto_url }}" target="_blank" rel="noopener">{{ contacto }}</a>
+    {% elif contacto %}<strong>{{ contacto }}</strong>{% else %}
       <em>[por preencher: email ou telemóvel de contacto]</em>
     {% endif %}.
   </p>

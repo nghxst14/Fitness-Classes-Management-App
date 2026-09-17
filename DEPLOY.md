@@ -56,7 +56,7 @@ adiciona estas (ver também `.env.example`):
 | `DJANGO_ALLOWED_HOSTS` | o domínio que o Railway te der (ex.: `nome.up.railway.app`) |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | o mesmo domínio com `https://` à frente |
 | `SERGIO_WHATSAPP` | `351913621166` (o número real do Sérgio) |
-| `RGPD_RESPONSAVEL` | **falta** — nome ou empresa do Sérgio (pedido a ele em set 2026) |
+| `RGPD_RESPONSAVEL` | `Sérgio Luís Marques e Silva Paulo` |
 | `RGPD_CONTACTO` | `351913621166` (o WhatsApp dele serve; não tem de ser email) |
 | `RGPD_PRAZO_ANOS` | `2` (decidido pelo André, set 2026) |
 
@@ -64,10 +64,11 @@ adiciona estas (ver também `.env.example`):
 > volta às Variables e mete-o nas duas variáveis de host acima. **Guarda e
 > deixa fazer o redeploy.**
 
-> **Das três `RGPD_*`, falta uma:** o `RGPD_RESPONSAVEL`. As outras duas já
-> estão decididas (acima). A app recusa arrancar sem as três, de propósito:
-> uma política publicada sem responsável não é uma política, e quem responde
-> legalmente pelos dados dos alunos é o Sérgio, não quem fez a app.
+> **As três `RGPD_*` já estão todas.** A app recusa arrancar sem elas, de
+> propósito: uma política publicada sem responsável não é uma política, e
+> quem responde legalmente pelos dados dos alunos é o Sérgio, não quem fez a
+> app. O nome vai aparecer na página `/privacidade/`, que é público — é
+> mesmo esse o objetivo: o aluno tem de saber a quem se dirigir.
 
 ## 5. Cria o teu utilizador de administração
 

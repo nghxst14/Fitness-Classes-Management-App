@@ -47,7 +47,7 @@ espaço para fazer bem, não licença para complicar.
 ```powershell
 venv\Scripts\activate
 python manage.py runserver          # http://127.0.0.1:8000/  (site) e /admin/
-python manage.py test accounts bookings   # 153 testes, todos a passar
+python manage.py test accounts bookings   # 155 testes, todos a passar
 python -m ruff check .                    # linter (configurado no pyproject.toml)
 ```
 As ferramentas de desenvolvimento (o **ruff**) estão no `requirements-dev.txt`,
@@ -294,6 +294,10 @@ Rotas em `bookings/urls.py`; login/logout em `config/urls.py`.
 - `privacidade` (`/privacidade/`) — a política. **Sem login**, de propósito:
   tem de se poder ler antes de decidir criar conta. Os dados do responsável
   vêm das definições; enquanto faltarem, a página diz que falta preencher.
+  O contacto passa por `_contacto_para_mostrar()`: se for um número
+  português, fica legível (`+351 913 621 166`) e ligado ao WhatsApp — a
+  página é lida no telemóvel, e um número corrido obrigava a copiar à mão
+  para exercer um direito. Um email fica como texto simples.
 
 **Concorrência:** reservar/cancelar usam UPDATE condicional atómico e
 `select_for_update`, à prova de duplo-clique / duas abas / última vaga.
@@ -517,7 +521,7 @@ permissões na ficha (só um superuser).
 
 ## 10. Testes
 
-**153 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
+**155 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
 throttle de login, normalização/registo/login por telemóvel, isolamento de
 créditos por tipo, reembolsos (cancelar sessão, apagar sessão/marcação, cancelar
 reserva), filtros e ações do admin de Sessões, coluna Telemóvel, gerador do
@@ -552,7 +556,7 @@ admin (360/390/768/1024/1400px); throttle de login nas duas portas (site e
 de RGPD (política, consentimento, apagamento); lista de espera com o ecrã de
 avisos; presenças, histórico do aluno e aulas de amanhã; vista de semana;
 instalar no telemóvel (PWA); linter e integração contínua;
-**153 testes**; GitHub ligado (privado).
+**155 testes**; GitHub ligado (privado).
 
 **POR FAZER (ver `PENDENTES.md` para o detalhe):**
 1. **Info do Sérgio sobre pacotes** — nomes/nº de sessões/`credit_type` reais;

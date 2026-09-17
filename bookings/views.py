@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timedelta
 from urllib.parse import quote
 
@@ -375,11 +376,39 @@ def privacidade(request):
     Os dados do responsável vêm das definições porque só o Sérgio os pode
     dar; enquanto faltarem, a página di-lo em vez de fingir que está pronta.
     """
+    texto, url = _contacto_para_mostrar(settings.RGPD_CONTACTO)
     return render(request, "privacidade.html", {
         "responsavel": settings.RGPD_RESPONSAVEL,
-        "contacto": settings.RGPD_CONTACTO,
+        "contacto": texto,
+        "contacto_url": url,
         "prazo_anos": settings.RGPD_PRAZO_ANOS,
     })
+
+
+def _contacto_para_mostrar(bruto):
+    """
+    Devolve (texto a mostrar, link) para o contacto da política.
+
+    Se for um número português, mostra-o legível (`+351 913 621 166`) e
+    liga-o ao WhatsApp: esta página é lida no telemóvel, e um número corrido
+    obrigava a selecionar e copiar à mão para pedir os dados ou o
+    apagamento — um direito não se exerce com esse atrito.
+
+    Qualquer outra coisa (um email, por exemplo) fica como texto simples. Um
+    `mailto:` seria fácil de acrescentar aqui se um dia fizer falta.
+    """
+    if not bruto:
+        return "", None
+    digitos = re.sub(r"[\s\-\+\(\)]", "", bruto)
+    if not digitos.isdigit():
+        return bruto, None
+
+    url = f"https://wa.me/{digitos}"
+    # 351 + 9 dígitos é o formato que este projeto usa em todo o lado.
+    if digitos.startswith("351") and len(digitos) == 12:
+        n = digitos[3:]
+        return f"+351 {n[:3]} {n[3:6]} {n[6:]}", url
+    return bruto, url
 
 
 def _voltar_ao_horario(session):

@@ -118,11 +118,11 @@ com frequência, vale um ecrã próprio. Não bloqueia nada.
   pacote e cada demonstração local mandariam mensagens verdadeiras ao
   Sérgio. O sítio onde o número real tem de estar é a produção, e é lá que
   a app o exige (recusa arrancar sem ele).
-- **Política de privacidade (RGPD): falta UMA das três variáveis.**
-  - `RGPD_RESPONSAVEL` — **por obter.** O nome ou a empresa do Sérgio, como
-    se identifica legalmente. É a única pergunta que o André lhe vai fazer
-    (set 2026). Tem de vir dele: o responsável legal pelos dados é o dono do
-    negócio, não quem fez a app.
+- **Política de privacidade (RGPD): as três variáveis já estão.**
+  - `RGPD_RESPONSAVEL` — **`Sérgio Luís Marques e Silva Paulo`** (set 2026).
+    É quem responde legalmente pelos dados dos alunos, e por isso o nome
+    aparece na página pública `/privacidade/` — é o objetivo: o aluno tem de
+    saber a quem se dirigir.
   - `RGPD_CONTACTO` — **`351913621166`**, o WhatsApp dele. Não tem de ser um
     email; o que a lei quer é uma forma real de o aluno pedir para ver ou
     apagar os dados, e o WhatsApp é o canal deste negócio.
