@@ -56,19 +56,18 @@ adiciona estas (ver também `.env.example`):
 | `DJANGO_ALLOWED_HOSTS` | o domínio que o Railway te der (ex.: `nome.up.railway.app`) |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | o mesmo domínio com `https://` à frente |
 | `SERGIO_WHATSAPP` | `351913621166` (o número real do Sérgio) |
-| `RGPD_RESPONSAVEL` | nome ou entidade do Sérgio, como se identifica legalmente |
-| `RGPD_CONTACTO` | email ou telemóvel para pedidos sobre dados pessoais |
-| `RGPD_PRAZO_ANOS` | anos que guarda os dados de quem deixa de ser aluno (ex.: `3`) |
+| `RGPD_RESPONSAVEL` | **falta** — nome ou empresa do Sérgio (pedido a ele em set 2026) |
+| `RGPD_CONTACTO` | `351913621166` (o WhatsApp dele serve; não tem de ser email) |
+| `RGPD_PRAZO_ANOS` | `2` (decidido pelo André, set 2026) |
 
 > O domínio: em *Settings → Networking → Generate Domain*. Depois de o gerar,
 > volta às Variables e mete-o nas duas variáveis de host acima. **Guarda e
 > deixa fazer o redeploy.**
 
-> **As três variáveis `RGPD_*` têm de vir do Sérgio.** A app recusa arrancar
-> sem elas, de propósito: uma política de privacidade publicada sem
-> responsável nem contacto não é uma política, e quem responde legalmente
-> pelos dados dos alunos é ele. Se ainda não as tiveres, o deploy fica à
-> espera — é a pergunta 7 do `REUNIAO-SERGIO.md`.
+> **Das três `RGPD_*`, falta uma:** o `RGPD_RESPONSAVEL`. As outras duas já
+> estão decididas (acima). A app recusa arrancar sem as três, de propósito:
+> uma política publicada sem responsável não é uma política, e quem responde
+> legalmente pelos dados dos alunos é o Sérgio, não quem fez a app.
 
 ## 5. Cria o teu utilizador de administração
 
@@ -126,23 +125,27 @@ São duas camadas, e as duas fazem falta:
       (Railway *Cron*) a correr um comando de gestão — fica para depois.
 - [ ] **Formação do Sérgio** (mini-guia do admin).
 
-## Segurança a rever no deploy (da revisão de jul 2026)
+## Segurança — o que já ficou resolvido
 
-O código está preparado (HTTPS, HSTS, cookies seguros — bloco `if not DEBUG`),
-mas há **dois pontos por resolver** que a config não cobre:
+O código está preparado (HTTPS, HSTS, cookies seguros — bloco `if not DEBUG`).
+Os pontos que a revisão de jul 2026 deixou em aberto **foram todos fechados**
+em set 2026:
 
-- [ ] **Throttle atrás de proxy.** `ThrottledLoginView` conta tentativas por
-      `REMOTE_ADDR`, que no Railway passa a ser o IP do proxy — todos os alunos
-      partilhariam o mesmo contador (um ataque a uma conta poderia bloquear
-      logins de toda a gente). Ler o IP real do `X-Forwarded-For`, com cuidado
-      para não confiar no cabeçalho às cegas (é falsificável).
-- [ ] **Login do admin sem throttle.** `/admin/login/` não passa pelo
-      `ThrottledLoginView` — a conta do Sérgio não está protegida contra força
-      bruta. Mitigar: password forte, **não** usar o username "admin", e/ou
-      limitar `/admin/` por IP.
+- [x] **Throttle atrás de proxy.** Lê o IP real do `X-Forwarded-For` (o
+      `REMOTE_ADDR` no Railway é o do proxy, e seria o mesmo para toda a
+      gente — um ataque a uma conta bloquearia os logins de todos).
+- [x] **Login do admin com travão.** O `/admin/login/` passou a ter o mesmo
+      limite de tentativas do login do site, com a **mesma** contagem: as duas
+      portas dão à mesma conta e alternar entre elas não pode render o dobro
+      das tentativas.
+- [x] **A contagem vive na base de dados**, não na memória do processo. Com
+      vários workers do gunicorn, cada um contava as suas tentativas e um
+      redeploy limpava tudo — o travão parecia existir e quase não travava.
+- [x] **XSS armazenada na coluna Telemóvel** — o nome do aluno passou a ir em
+      `data-nome` em vez de dentro do `onclick`.
 
-*(Já corrigido antes do deploy: XSS armazenada na coluna Telemóvel do admin — o
-nome do aluno passou a ir em `data-nome` em vez de dentro do `onclick`.)*
+Continua a valer o óbvio: **password forte** na conta de administração, e de
+preferência sem o username "admin".
 
 ## Notas
 

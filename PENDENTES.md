@@ -72,25 +72,23 @@ Isto trava duas das três coisas pedidas:
 - **Lembretes** — um lembrete é, por definição, ir ter com a pessoa. Sem
   canal, seria um aviso no site que ela só vê se lá for.
 
-Saídas em aberto (por decidir com o André):
-1. **O Sérgio avisa pelo WhatsApp**, a partir de um ecrã que lhe diz quem
-   avisar. Mantém o toque pessoal, que é o negócio dele, e não precisa de
-   infraestrutura nenhuma.
-2. **Janela de confirmação** na lista de espera: a vaga fica reservada X
-   horas à espera que o aluno confirme, em vez de o inscrever logo.
+**Resolvido** na secção acima: escolheu-se a opção 1 — o Sérgio avisa pelo
+WhatsApp, a partir de um ecrã que lhe diz quem avisar. A alternativa que foi
+posta de lado era uma janela de confirmação na lista de espera (a vaga
+reservada X horas à espera que o aluno confirme), que continuava a precisar
+de alguém que o avisasse.
 
-## Contas de administração (set 2026)
+## Contas de administração (set 2026) — FEITO
 
-Decisão do André: vai haver **dois** administradores — ele para manutenção e
-o Sérgio como administrador prático — e, mais tarde, um admin poderá dar
-acesso a outro utilizador.
+Dois administradores: o André para manutenção e o Sérgio como administrador
+prático. **As regras já estão no código**: a lista não mostra os admins a
+quem não é superuser, a ficha e a remoção recusam, e os campos
+`is_staff`/`is_superuser` desaparecem do formulário — dar `is_staff` a um
+aluno seria criar um administrador pela porta do lado.
 
-O que falta desenhar (o código assume hoje **um** superuser, e o
-`accounts/admin.py` esconde grupos e permissões por causa disso):
-- o que o Sérgio **pode** e **não pode** fazer (dar créditos e cancelar aulas,
-  de certeza; apagar alunos? mudar passwords? criar outros admins?);
-- um ecrã para atribuir esse acesso que não seja o painel de permissões do
-  Django — dezenas de checkboxes técnicas em inglês, o oposto de simples.
+O que fica por fazer é só **a comodidade**: atribuir esse acesso passa hoje
+pelo painel de permissões do Django, denso e em inglês. Se um dia for preciso
+com frequência, vale um ecrã próprio. Não bloqueia nada.
 
 ## Extras / polimento (nada disto bloqueia o lançamento)
 
@@ -120,22 +118,28 @@ O que falta desenhar (o código assume hoje **um** superuser, e o
   pacote e cada demonstração local mandariam mensagens verdadeiras ao
   Sérgio. O sítio onde o número real tem de estar é a produção, e é lá que
   a app o exige (recusa arrancar sem ele).
-- **Dados da política de privacidade (RGPD)** — as variáveis
-  `RGPD_RESPONSAVEL`, `RGPD_CONTACTO` e `RGPD_PRAZO_ANOS`. **Só o Sérgio as
-  pode dar** (é ele o responsável legal pelos dados dos alunos) e a app
-  recusa arrancar em produção sem elas. É a pergunta 7 do
-  `REUNIAO-SERGIO.md`: como se identifica legalmente, para onde escrevem os
-  alunos a pedir os dados ou o apagamento, e quanto tempo os guarda depois
-  de alguém deixar de ser aluno.
-- **Deploy (Bloco 5)**: Railway ou PythonAnywhere; PostgreSQL; `DEBUG=False`;
-  whitenoise; e rever o throttle do login (atrás de proxy, o `REMOTE_ADDR`
-  passa a ser o IP do proxy — usar o cabeçalho correto).
-- **Limpar dados de teste antes do deploy** — utilizadores User1/User2/User3
-  e Ana Teste (913000001), aulas de teste e pacotes fictícios.
-- **Programa semanal**: o preset (23 encaixes) está pré-preenchido com tudo em
-  "Aula de Grupo" (Small Group) / Estúdio por defeito. O Sérgio deve rever o
-  tipo e o local de cada encaixe no admin (Programa semanal) antes de o usar
-  a sério, e o número real de aulas por horário (varia semana a semana).
+- **Política de privacidade (RGPD): falta UMA das três variáveis.**
+  - `RGPD_RESPONSAVEL` — **por obter.** O nome ou a empresa do Sérgio, como
+    se identifica legalmente. É a única pergunta que o André lhe vai fazer
+    (set 2026). Tem de vir dele: o responsável legal pelos dados é o dono do
+    negócio, não quem fez a app.
+  - `RGPD_CONTACTO` — **`351913621166`**, o WhatsApp dele. Não tem de ser um
+    email; o que a lei quer é uma forma real de o aluno pedir para ver ou
+    apagar os dados, e o WhatsApp é o canal deste negócio.
+  - `RGPD_PRAZO_ANOS` — **2**, decidido pelo André (set 2026). É o intervalo
+    habitual para dados de ex-clientes: chega para o aluno voltar sem perder
+    o histórico, e não guarda dados de quem desapareceu há muito.
+- **Deploy no Railway** — passo a passo em `DEPLOY.md`. O código está
+  pronto; falta a parte de painel (conta, PostgreSQL, variáveis). Vai ser
+  tratado com o Sérgio, que é quem paga o alojamento.
+  *(O throttle atrás de proxy, que estava aqui como pendente, já foi feito.)*
+- **Limpar dados de teste antes do deploy** — o André pediu para esperar
+  (set 2026). A lista completa está no `CLAUDE.md`, secção 11.
+- **Programa semanal**: os 23 encaixes estão todos em "Aula de Grupo" /
+  Estúdio por defeito. O Sérgio deve rever o tipo e o local de cada um antes
+  de o usar a sério, e o número real de aulas por horário (varia semana a
+  semana). *(Os dois encaixes de Segunda que estavam como "PT Individual"
+  com 12 lugares foram corrigidos para Aula de Grupo em set 2026.)*
 - **Mini-guia do admin para o Sérgio** (formação de entrega).
 
 ## Decisões fechadas (não fazer)
