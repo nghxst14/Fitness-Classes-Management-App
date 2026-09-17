@@ -1,0 +1,66 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static atividades %}
+
+{% comment %}
+  Cópia do `admin/index.html` do Django com uma diferença: o painel lateral
+  passa a mostrar **o que foi feito**, com valores, em vez de só o nome do
+  objeto mexido.
+
+  Porquê copiar: o Django não deixa estender um template pelo próprio nome
+  (daria recursão), e o painel lateral vive num bloco que o index define —
+  do `base_site.html` não se lhe chega. O ficheiro original tem 51 linhas e
+  quase só blocos; ao atualizar o Django, vale a pena comparar com o dele.
+
+  O painel nativo do Django ("Ações recentes") foi retirado: mostrava
+  exactamente as mesmas linhas com menos informação — "Alterado: Joana
+  Silva" onde o nosso diz "Joana Silva +10 Small Group" — e dois painéis a
+  dizer o mesmo, um pior, fazem duvidar de qual é o verdadeiro. O nosso
+  cobre-o por inteiro: lê a mesma fonte (`LogEntry`) e ainda mostra as
+  ações dos outros administradores, que o nativo filtrava.
+{% endcomment %}
+
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static "admin/css/dashboard.css" %}">{% endblock %}
+
+{% block coltype %}colMS{% endblock %}
+
+{% block bodyclass %}{{ block.super }} dashboard{% endblock %}
+
+{% block nav-breadcrumbs %}{% endblock %}
+
+{% block nav-sidebar %}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+</div>
+{% endblock %}
+
+{% block sidebar %}
+<div id="content-related">
+
+  <div class="module" id="atividades-recentes">
+    <h2>Últimas atividades</h2>
+    {% atividades_recentes 5 as atividades %}
+    {% if not atividades %}
+      <p class="mini quiet" style="padding:0 1rem 1rem;">
+        Ainda não há nada para mostrar. As alterações que fizeres aparecem aqui.
+      </p>
+    {% else %}
+      <ul class="actionlist">
+        {% for a in atividades %}
+          <li class="{% if a.tipo == 'credito' %}changelink{% else %}addlink{% endif %}">
+            {% if a.url %}
+              <a href="{{ a.url }}">{{ a.quem }}</a>
+            {% else %}
+              {{ a.quem }}
+            {% endif %}
+            <br>
+            <span class="mini quiet">{{ a.detalhe }} · {{ a.ha_quanto }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

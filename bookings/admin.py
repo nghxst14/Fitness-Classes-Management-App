@@ -592,6 +592,23 @@ class MovimentoCreditoAdmin(admin.ModelAdmin):
             cor, sinal, abs(obj.quantidade), obj.get_credit_type_display(),
         )
 
+    def has_module_permission(self, request):
+        """
+        Esconde a aba da página de entrada — mas não fecha a página.
+
+        Este livro junta os movimentos de **todos** os alunos misturados, e
+        não é assim que a pergunta aparece: ela vem sempre de um aluno em
+        concreto ("comprei 10, fui a 3, porque tenho 5?"), e a resposta está
+        no Histórico dele. Como aba solta, só ocupava espaço no menu do
+        Sérgio — e era a única linha do painel a aparecer em inglês, porque
+        o catálogo pt do Django não traduz o "View" que o Django põe nos
+        modelos só de leitura.
+
+        Devolver False tira-a do menu; o endereço continua a responder a
+        quem o escrever, o que serve para conferir alguma coisa à mão.
+        """
+        return False
+
     def has_add_permission(self, request):
         return False
 
@@ -963,3 +980,42 @@ class ListaEsperaAdmin(admin.ModelAdmin):
             self.message_user(
                 request, "Nenhum dos selecionados estava à espera de aviso."
             )
+
+
+# --- Ordem das abas na página de entrada -------------------------------------
+# O Django ordena os modelos por ordem alfabética, o que punha "Listas de
+# espera" em primeiro — das coisas que menos se abrem — e as "Sessões", que
+# são o trabalho de todos os dias, em sétimo.
+#
+# A ordem passa a ser a do uso: o que se faz todos os dias em cima, o que se
+# define uma vez (tipos de serviço, locais) em baixo. O que não estiver nesta
+# lista vai para o fim, por ordem alfabética, para um modelo novo não
+# desaparecer sem se dar por isso.
+ORDEM_DAS_ABAS = [
+    "Session",           # as aulas
+    "Booking",           # quem está inscrito
+    "WeeklyProgramSlot",  # gerar a semana
+    "ListaEspera",       # quem falta avisar
+    "Pack",
+    "ServiceType",
+    "Location",
+]
+
+
+def _abas_por_ordem_de_uso(self, request, app_label=None):
+    """Substitui a ordenação alfabética do Django pela ordem de uso."""
+    lista = _get_app_list_original(self, request, app_label)
+    for app in lista:
+        app["models"].sort(
+            key=lambda m: (
+                ORDEM_DAS_ABAS.index(m["object_name"])
+                if m["object_name"] in ORDEM_DAS_ABAS
+                else len(ORDEM_DAS_ABAS)
+            )
+        )
+    return lista
+
+
+# Guardado antes de substituir, para a nova função poder chamar a original.
+_get_app_list_original = admin.AdminSite.get_app_list
+admin.AdminSite.get_app_list = _abas_por_ordem_de_uso

@@ -1922,3 +1922,179 @@ class LembretesTests(TestCase):
         self._aula(1)  # ninguém inscrito
         aulas = self.painel.get(self.url).context["aulas"]
         self.assertEqual(aulas, [])
+
+
+class PainelDoAdminTests(TestCase):
+    """
+    A página de entrada do painel: o que aparece, por que ordem, e o resumo
+    das últimas atividades.
+    """
+
+    def setUp(self):
+        self.chefe = User.objects.create_superuser(username="chefe", password="x")
+        self.painel = Client()
+        self.painel.force_login(self.chefe)
+        self.url = reverse("admin:index")
+
+    def _abas(self):
+        """Os nomes dos modelos na página de entrada, pela ordem em que saem."""
+        html = self.painel.get(self.url).content.decode()
+        return re.findall(r'<th scope="row"[^>]*>\s*<a[^>]*>([^<]+)</a>', html)
+
+    def test_movimentos_de_creditos_nao_aparece_no_painel(self):
+        # É um livro de todos os alunos misturados; o Sérgio consulta o
+        # extrato de cada um no Histórico do aluno, não aqui.
+        self.assertNotIn("Movimentos de créditos", self._abas())
+
+    def test_a_pagina_dos_movimentos_continua_a_abrir(self):
+        # Escondida do menu, não fechada: continua a servir para verificar.
+        resposta = self.painel.get(
+            reverse("admin:bookings_movimentocredito_changelist")
+        )
+        self.assertEqual(resposta.status_code, 200)
+
+    def test_sessoes_vem_antes_da_lista_de_espera(self):
+        # A ordem alfabética do Django punha "Listas de espera" em primeiro,
+        # que é das coisas que menos se abre. A ordem passa a ser a do uso.
+        abas = self._abas()
+        self.assertLess(
+            abas.index("Sessões"), abas.index("Listas de espera"),
+            f"ordem errada: {abas}",
+        )
+
+    def test_a_configuracao_fica_no_fim(self):
+        """
+        O que se usa todos os dias em cima; o que se define uma vez, em baixo.
+
+        Tipos de serviço e Locais definem-se no início e quase não se voltam
+        a abrir — não têm de disputar o topo com as Sessões.
+        """
+        abas = self._abas()
+        for raro in ("Tipos de serviço", "Locais"):
+            self.assertGreater(
+                abas.index(raro), abas.index("Sessões"), f"ordem errada: {abas}"
+            )
+
+    def test_utilizadores_continua_a_abrir_a_lista(self):
+        # É de outra secção ("Contas e utilizadores") e é por onde entram os
+        # créditos — fica onde está, em primeiro.
+        self.assertEqual(self._abas()[0], "Utilizadores")
+
+
+class AtividadesRecentesTests(TestCase):
+    """
+    O resumo das últimas ações no painel.
+
+    Existe para o Sérgio a meio de atualizar os créditos do mês: se não se
+    lembrar se já deu os da Joana, vê aqui em vez de abrir a ficha dela.
+    """
+
+    def setUp(self):
+        self.chefe = User.objects.create_superuser(
+            username="chefe", password="x", first_name="Sérgio"
+        )
+        self.painel = Client()
+        self.painel.force_login(self.chefe)
+        self.joana = User.objects.create_user(
+            username="913500500", password="x",
+            first_name="Joana", last_name="Silva", sessoes_sg=5,
+        )
+
+    def _texto_do_painel(self):
+        html = self.painel.get(reverse("admin:index")).content.decode()
+        bloco = html.split('id="atividades-recentes"')[1].split("</div>")[0]
+        return re.sub(r"<[^>]+>", " ", bloco)
+
+    def _dar_creditos(self, quantos):
+        """Como o Sérgio faz: editar o saldo na lista de Utilizadores."""
+        return self.painel.post(reverse("admin:accounts_user_changelist"), {
+            "form-TOTAL_FORMS": "1", "form-INITIAL_FORMS": "1",
+            "form-MIN_NUM_FORMS": "0", "form-MAX_NUM_FORMS": "1000",
+            "form-0-id": str(self.joana.pk),
+            "form-0-sessoes_sg": str(self.joana.sessoes_sg + quantos),
+            "form-0-sessoes_pt": str(self.joana.sessoes_pt),
+            "form-0-sessoes_hybrid": str(self.joana.sessoes_hybrid),
+            "_save": "Guardar",
+        })
+
+    def test_creditos_dados_aparecem_com_o_valor(self):
+        self._dar_creditos(10)
+        texto = self._texto_do_painel()
+        self.assertIn("Joana Silva", texto)
+        self.assertIn("+10", texto)
+        self.assertIn("Small Group", texto)
+
+    def test_nao_mostra_o_saldo_com_que_ficou(self):
+        # Pedido explícito: interessa o que foi dado, não o total.
+        self._dar_creditos(10)
+        self.assertNotIn("ficou com", self._texto_do_painel().lower())
+
+    def test_um_local_novo_aparece(self):
+        self.painel.post(reverse("admin:bookings_location_add"), {
+            "name": "Parque da Cidade", "kind": "outdoor", "address": "", "active": "on",
+        })
+        self.assertIn("Parque da Cidade", self._texto_do_painel())
+
+    def test_mostra_no_maximo_cinco(self):
+        for i in range(8):
+            self.painel.post(reverse("admin:bookings_location_add"), {
+                "name": f"Local {i}", "kind": "indoor", "address": "", "active": "on",
+            })
+        texto = self._texto_do_painel()
+        aparecem = sum(1 for i in range(8) if f"Local {i}" in texto)
+        self.assertEqual(aparecem, 5, "deviam aparecer só as 5 últimas")
+
+    def test_sem_nada_feito_diz_que_esta_vazio(self):
+        self.assertIn("ainda não", self._texto_do_painel().lower())
+
+    def test_nao_ha_dois_paineis_a_dizer_o_mesmo(self):
+        """
+        O painel nativo do Django foi retirado.
+
+        Mostrava as mesmas linhas com menos informação ("Alterado: Joana
+        Silva" contra "Joana Silva +10 Small Group"). Dois painéis a dizer o
+        mesmo, um deles pior, fazem duvidar de qual é o verdadeiro.
+        """
+        self._dar_creditos(10)
+        html = self.painel.get(reverse("admin:index")).content.decode()
+        self.assertNotIn('id="recent-actions-module"', html)
+        self.assertIn('id="atividades-recentes"', html)
+
+    def test_o_tempo_aparece_em_portugues(self):
+        """
+        O `timesince` do Django devolve "0 minutes", "2 hours" — o catálogo
+        pt não traduz essas palavras (o mesmo buraco do "View"). E "0
+        minutes" para uma coisa acabada de fazer é mau em qualquer língua.
+        """
+        self._dar_creditos(10)
+        texto = self._texto_do_painel()
+        self.assertIn("agora mesmo", texto)
+        for ingles in ("minutes", "hours", "days", "minute", "hour"):
+            self.assertNotIn(ingles, texto)
+
+
+class QuandoEmPortuguesTests(TestCase):
+    """O tempo decorrido, escrito como uma pessoa o diria."""
+
+    def _texto(self, **quanto):
+        from bookings.templatetags.atividades import ha_quanto_tempo
+        return ha_quanto_tempo(timezone.now() - timedelta(**quanto))
+
+    def test_acabado_de_fazer(self):
+        self.assertEqual(self._texto(seconds=10), "agora mesmo")
+
+    def test_minutos(self):
+        self.assertEqual(self._texto(minutes=5), "há 5 min")
+
+    def test_uma_hora_no_singular(self):
+        self.assertEqual(self._texto(hours=1, minutes=2), "há 1 hora")
+
+    def test_varias_horas_no_plural(self):
+        self.assertEqual(self._texto(hours=3), "há 3 horas")
+
+    def test_ontem_leva_a_hora(self):
+        # Ao fim de um dia, "há 26 horas" obriga a fazer contas de cabeça.
+        self.assertTrue(self._texto(days=1, hours=2).startswith("ontem, "))
+
+    def test_mais_antigo_leva_a_data(self):
+        self.assertRegex(self._texto(days=5), r"^\d{2}/\d{2}, \d{2}:\d{2}$")
