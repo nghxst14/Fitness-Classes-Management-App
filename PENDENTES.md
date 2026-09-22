@@ -90,6 +90,49 @@ O que fica por fazer é só **a comodidade**: atribuir esse acesso passa hoje
 pelo painel de permissões do Django, denso e em inglês. Se um dia for preciso
 com frequência, vale um ecrã próprio. Não bloqueia nada.
 
+## Automação e agentes — a explorar (set 2026)
+
+O André quer ver até onde dá para automatizar o negócio. Nada disto está
+decidido; fica aqui o que já se pensou para não se repetir a conversa.
+
+**Automação ≠ agente.** Se o gatilho e a ação são sempre os mesmos ("aula
+cancelada → avisar os inscritos"), é código normal, sem IA. Um agente
+(Claude API com *tool use*) só se justifica quando é preciso interpretar
+algo imprevisível — uma mensagem livre como "dá para trocar a de quinta
+pela de sexta?" — e decidir que passos dar.
+
+**1. Avisar os inscritos quando uma aula é cancelada** — o próximo passo
+natural, e não precisa de agente. Dois caminhos:
+- **Ecrã de avisos (recomendado para começar).** Depois de "Cancelar esta
+  aula", o Sérgio vê a lista dos inscritos, com cada número a abrir o
+  WhatsApp com a mensagem já escrita (`wa.me`). Segue o padrão decidido
+  acima ("a app junta, o Sérgio avisa"), custo zero, faz-se numa tarde.
+- **Envio automático pela API oficial da Meta (WhatsApp Cloud API).** Entra
+  no `_refund_active_bookings()`, dentro de `transaction.on_commit()` (só
+  avisa se o cancelamento ficou gravado). Exige conta Meta Business, um
+  **template aprovado** pela Meta e custa uns cêntimos por mensagem.
+
+**2. Agente de marcações pelo WhatsApp** — o aluno escreve em linguagem
+natural e o agente reserva/cancela/consulta saldos. As "ferramentas" seriam
+as funções que já existem (`book`, `cancel_booking`, horário, saldos),
+reaproveitando as regras de antecedência e o UPDATE atómico. Cuidados: só
+as ferramentas necessárias (nunca mexer em saldos), confirmação do aluno
+antes de agir, e custo da API do Claude por uso.
+
+**Obstáculos comuns ao envio automático e ao agente:**
+- Vão contra a decisão fechada "sem integração de WhatsApp na app" —
+  **reabrir só depois de falar com o Sérgio**.
+- A ligação ao WhatsApp tem de ser a **API oficial**. Bibliotecas não
+  oficiais (whatsapp-web.js, Baileys) violam os termos e arriscam o banimento
+  do número do Sérgio.
+- RGPD: as mensagens dos alunos passam a ir para serviços externos (Meta,
+  Anthropic) — atualizar a política de privacidade.
+- Precisa de servidor sempre ligado com webhook (o deploy no Railway primeiro).
+
+**Por fazer:** levantar com o André/Sérgio a lista do que hoje é trabalho
+manual (marcações, avisos, venda de pacotes, créditos) e decidir o que vale
+automatizar, por ordem de ganho.
+
 ## Extras / polimento (nada disto bloqueia o lançamento)
 
 - **Ícone do PWA a 512px está ampliado.** Os ícones de instalação no
