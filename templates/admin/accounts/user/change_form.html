@@ -1,36 +1,29 @@
 {% extends "admin/change_form.html" %}
 
 {% comment %}
-  Acrescenta o botão de password provisória à ficha do aluno.
+  O formulário que gera a password provisória.
 
-  Vai no `object-tools` (a barra de botões do canto superior direito) e não
-  junto aos campos: os blocos que ficam ao pé dos campos estão TODOS dentro
-  do <form> principal do admin, e um <form> dentro de outro é descartado
-  pelo browser sem dar erro — o botão simplesmente não existia na página,
-  apesar de estar no template.
+  Está aqui, no fim da página e VAZIO, porque o botão que o submete vive lá
+  em cima, na secção "Password" da ficha (ver `acao_password` em
+  accounts/admin.py). O botão aponta-lhe com `form="..."`, que é o que o HTML
+  tem para ligar um botão a um formulário que não o envolve.
 
-  É um <form> e não um link porque muda a password de alguém: um GET podia
-  ser disparado por um prefetch do browser ou por quem abrisse o endereço
-  por curiosidade, e trancava a conta sem ninguém ter pedido nada.
+  Não dava para pôr o <form> junto ao botão: tudo o que o admin desenha ao pé
+  dos campos está dentro do formulário principal da ficha, e um <form> dentro
+  de outro é descartado pelo browser — sem erro nenhum, o botão simplesmente
+  não fazia nada. Já aconteceu uma vez neste ficheiro.
 
-  Não aparece em contas de administração (o Sérgio não reinicia a password
-  do André) nem no ecrã de criar, onde ainda não há utilizador.
+  É POST e não um link porque muda a password de alguém: um GET podia ser
+  disparado por um prefetch do browser, e trancava a conta sem ninguém ter
+  pedido nada.
 {% endcomment %}
 
-{% block object-tools-items %}
-  {% if original and not original.is_staff and not original.is_superuser %}
-    <li>
-      <form method="post"
-            action="{% url 'admin:accounts_user_password_provisoria' original.pk %}"
-            style="display:contents;">
-        {% csrf_token %}
-        <button type="submit" class="historylink"
-                title="Para quando o aluno se esquece da password: gera uma provisória, mostra-a uma única vez e obriga-o a escolher outra ao entrar."
-                onclick="return confirm('Gerar uma password provisória para {{ original }}? A password atual dele deixa de funcionar.')">
-          Gerar password provisória
-        </button>
-      </form>
-    </li>
-  {% endif %}
+{% block content %}
   {{ block.super }}
+  {% if original and not original.is_staff and not original.is_superuser %}
+    <form id="gerar-password-provisoria" method="post"
+          action="{% url 'admin:accounts_user_password_provisoria' original.pk %}">
+      {% csrf_token %}
+    </form>
+  {% endif %}
 {% endblock %}

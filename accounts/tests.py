@@ -406,27 +406,57 @@ class PasswordProvisoriaTests(TestCase):
         self.url = reverse("admin:accounts_user_password_provisoria",
                            args=[self.aluno.pk])
 
-    def test_o_botao_aparece_na_ficha(self):
-        """
-        E tem de estar FORA do formulário principal do admin.
-
-        Os blocos que ficam junto aos campos estão todos dentro do <form> da
-        ficha, e um <form> dentro de outro é descartado pelo browser sem dar
-        erro nenhum: o botão está no template, o teste encontra-o no html, e
-        na página não existe. Foi o que aconteceu à primeira tentativa —
-        daí este teste comparar as posições e não só procurar o texto.
-        """
-        html = self.painel.get(
+    def _ficha(self):
+        return self.painel.get(
             reverse("admin:accounts_user_change", args=[self.aluno.pk])
         ).content.decode()
-        self.assertIn("Gerar password provisória", html)
 
-        posicao_botao = html.index("password-provisoria/")
-        posicao_form_principal = html.index('id="user_form"')
-        self.assertLess(
-            posicao_botao, posicao_form_principal,
-            "o botão está dentro do formulário do admin: o browser vai "
-            "descartá-lo e ele não aparece na página",
+    def test_o_formulario_nao_fica_dentro_do_formulario_da_ficha(self):
+        """
+        Um <form> dentro de outro é descartado pelo browser, sem erro nenhum.
+
+        O botão vive na secção da password, que o admin desenha DENTRO do
+        formulário principal — por isso o formulário que ele submete tem de
+        estar fora, no fim da página, e ligado por `form="..."`. Se alguém o
+        mudar para junto do botão, o botão continua a aparecer e deixa de
+        fazer nada. Já aconteceu uma vez.
+        """
+        html = self._ficha()
+        self.assertIn('id="gerar-password-provisoria"', html)
+        self.assertIn('form="gerar-password-provisoria"', html)
+
+        entre = html[
+            html.index('id="user_form"') : html.index('id="gerar-password-provisoria"')
+        ]
+        self.assertIn(
+            "</form>", entre,
+            "o formulário da password abre antes de o da ficha fechar: está "
+            "aninhado e o browser vai descartá-lo",
+        )
+
+    def test_a_ficha_nao_mostra_o_mecanismo_do_django(self):
+        """
+        O campo de password do Django não serve a quem vai usar isto.
+
+        Mostrava o algoritmo, as iterações, o salt e o hash — lixo técnico
+        que não diz nada ao Sérgio — e um "Reset password" em inglês que
+        levava a um formulário onde ele teria de INVENTAR a password. Dois
+        caminhos para a mesma coisa, e o do Django é o pior dos dois.
+        """
+        html = self._ficha()
+        self.assertNotIn("pbkdf2", html)
+        self.assertNotIn("Reset password", html)
+        self.assertNotIn("Raw passwords are not stored", html)
+
+    def test_o_botao_esta_na_seccao_da_password(self):
+        # E não no topo da página: pertence ao pé do que diz respeito.
+        html = self._ficha()
+        self.assertIn("Gerar password provisória", html)
+        posicao_seccao = html.index("field-acao_password")
+        posicao_topo = html.index('class="object-tools"')
+        self.assertGreater(
+            posicao_seccao, posicao_topo,
+            "o botão continua na barra do topo em vez da secção da password",
         )
 
     def test_gerar_muda_a_password(self):
