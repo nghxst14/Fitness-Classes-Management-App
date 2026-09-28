@@ -47,7 +47,7 @@ espaço para fazer bem, não licença para complicar.
 ```powershell
 venv\Scripts\activate
 python manage.py runserver          # http://127.0.0.1:8000/  (site) e /admin/
-python manage.py test accounts bookings   # 155 testes, todos a passar
+python manage.py test accounts bookings   # 200 testes, todos a passar
 python -m ruff check .                    # linter (configurado no pyproject.toml)
 ```
 As ferramentas de desenvolvimento (o **ruff**) estão no `requirements-dev.txt`,
@@ -56,8 +56,17 @@ as deve instalar. **A cada push, o GitHub Actions corre o linter, o `check`, os
 testes e o `makemigrations --check`** (`.github/workflows/testes.yml`): um push
 que parta alguma coisa fica com uma cruz vermelha em vez de passar despercebido
 até ao deploy.
-`makemigrations` + `migrate` só quando os modelos mudam. Ao mexer no CSS, o
-browser cacheia — usar **Ctrl+F5**. Detalhes completos em `GUIA_COMANDOS.md`.
+`makemigrations` + `migrate` só quando os modelos mudam. Detalhes completos
+em `GUIA_COMANDOS.md`.
+
+**Ao mexer no CSS já não é preciso Ctrl+F5** (set 2026). O `runserver` servia
+os estáticos acima de toda a cadeia de middlewares e sem `Cache-Control`
+nenhum; o browser, sem instruções, inventava um prazo e guardava o ficheiro.
+Mexia-se no CSS, recarregava-se, e via-se a versão antiga — sem nada que o
+indicasse. Custou três diagnósticos errados numa tarde. Agora o
+`whitenoise.runserver_nostatic` tira essa tarefa ao runserver e um middleware
+põe `no-store` nos estáticos **em DEBUG** (em produção os ficheiros levam
+hash no nome e a cache é desejável).
 
 **O `venv/` não é portátil** e parte-se sem avisar (aponta para o caminho
 absoluto do Python que o criou). Se o projeto mudar de máquina ou de perfil de
@@ -521,7 +530,7 @@ permissões na ficha (só um superuser).
 
 ## 10. Testes
 
-**155 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
+**200 testes** (`accounts/tests.py`, `bookings/tests.py`), todos a passar:
 throttle de login, normalização/registo/login por telemóvel, isolamento de
 créditos por tipo, reembolsos (cancelar sessão, apagar sessão/marcação, cancelar
 reserva), filtros e ações do admin de Sessões, coluna Telemóvel, gerador do
@@ -556,7 +565,7 @@ admin (360/390/768/1024/1400px); throttle de login nas duas portas (site e
 de RGPD (política, consentimento, apagamento); lista de espera com o ecrã de
 avisos; presenças, histórico do aluno e aulas de amanhã; vista de semana;
 instalar no telemóvel (PWA); linter e integração contínua;
-**155 testes**; GitHub ligado (privado).
+**200 testes**; GitHub ligado (privado).
 
 **POR FAZER (ver `PENDENTES.md` para o detalhe):**
 1. **Info do Sérgio sobre pacotes** — nomes/nº de sessões/`credit_type` reais;
@@ -601,7 +610,7 @@ parte); `ClientPack` apagado de todo.
 ## 12. Notas / cuidados (resumo)
 
 - UI, mensagens e admin **sempre em pt-PT**. Manter tudo **simples**.
-- Ao mexer no CSS: **Ctrl+F5** (cache do browser).
+- Ao mexer no CSS **já não é preciso Ctrl+F5** — ver a secção 2.
 - Templates de **widgets** de formulário vivem em `<app>/templates/`, não na
   pasta de projeto (o renderizador de formulários procura nas apps).
 - Comentários de template multi-linha: `{% comment %}`, nunca `{# #}`.

@@ -591,3 +591,34 @@ class MudarPasswordTests(TestCase):
 
     def test_quem_nao_tem_de_mudar_nao_e_incomodado(self):
         self.assertEqual(self.cliente.get(reverse("schedule")).status_code, 200)
+
+
+class EstaticosSemCacheEmDesenvolvimentoTests(TestCase):
+    """
+    Em desenvolvimento, o browser não pode guardar o CSS.
+
+    O servidor de desenvolvimento serve os estáticos sem `Cache-Control` nem
+    `ETag` — só `Last-Modified`. Sem instruções, o browser aplica uma cache
+    heurística: inventa um prazo e reutiliza a cópia guardada sem perguntar
+    nada ao servidor. O resultado é mexer-se no CSS, recarregar, e ver a
+    versão antiga — sem nada que o indique.
+
+    Custou três diagnósticos errados numa tarde: duas vezes a dar uma
+    correção por não aplicada, e uma terceira a procurar um defeito de
+    layout que já estava resolvido.
+
+    Em produção isto não se aplica: lá os ficheiros levam hash no nome
+    (WhiteNoise), e um ficheiro alterado tem endereço novo — aí a cache é
+    desejável e a regra não deve valer.
+    """
+
+    def test_o_css_pede_para_nao_ser_guardado(self):
+        with self.settings(DEBUG=True):
+            resposta = self.client.get("/static/css/admin-extra.css")
+        self.assertIn("no-store", resposta.headers.get("Cache-Control", ""))
+
+    def test_as_paginas_normais_nao_sao_afetadas(self):
+        # A regra é só para /static/: o resto do site não muda.
+        with self.settings(DEBUG=True):
+            resposta = self.client.get(reverse("home"))
+        self.assertNotIn("no-store", resposta.headers.get("Cache-Control", ""))

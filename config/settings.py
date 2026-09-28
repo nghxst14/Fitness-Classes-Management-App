@@ -37,6 +37,13 @@ CSRF_TRUSTED_ORIGINS = [
 
 # --- Aplicações --------------------------------------------------------------
 INSTALLED_APPS = [
+    # ANTES do staticfiles: tira ao `runserver` a tarefa de servir os
+    # ficheiros estáticos. Ele servia-os acima de toda a cadeia de
+    # middlewares, sem Cache-Control nenhum — e o browser, sem instruções,
+    # inventava um prazo e guardava o CSS. Mexia-se no ficheiro, recarregava,
+    # e via-se a versão antiga. Com isto, passam pela cadeia normal e pelo
+    # middleware que lhes põe `no-store` (ver accounts/middleware.py).
+    "whitenoise.runserver_nostatic",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -50,6 +57,11 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Acima do WhiteNoise de propósito: quando ele serve um ficheiro devolve
+    # logo a resposta, e os middlewares abaixo não chegam a vê-la. Na
+    # resposta a ordem inverte-se, por isso daqui ainda dá para lhe pôr o
+    # cabeçalho.
+    "accounts.middleware.EstaticosSemCacheEmDesenvolvimento",
     # WhiteNoise serve os ficheiros estáticos em produção (logo a seguir ao
     # SecurityMiddleware, como manda a documentação). Em dev é inofensivo.
     "whitenoise.middleware.WhiteNoiseMiddleware",

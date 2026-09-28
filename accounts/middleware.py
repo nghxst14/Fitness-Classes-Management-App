@@ -1,4 +1,5 @@
-"""Obriga quem tem password provisória a escolher outra antes de continuar."""
+"""Middlewares do projeto."""
+from django.conf import settings
 from django.shortcuts import redirect
 from django.urls import reverse
 
@@ -43,3 +44,34 @@ class ForcarMudancaDePassword:
         return request.path in livres or request.path.startswith(
             ("/admin/", "/static/", "/media/")
         )
+
+
+class EstaticosSemCacheEmDesenvolvimento:
+    """
+    Diz ao browser para não guardar os ficheiros estáticos, em desenvolvimento.
+
+    O servidor de desenvolvimento serve o CSS sem `Cache-Control` nem
+    `ETag` — só `Last-Modified`. Sem instruções, o browser aplica uma cache
+    heurística: inventa um prazo (costuma ser 10% do tempo desde a última
+    alteração) e reutiliza a cópia guardada sem sequer perguntar ao
+    servidor. Mexe-se no CSS, recarrega-se, e vê-se a versão antiga — sem
+    nada que o indique a não ser a folha servida ter menos bytes do que o
+    ficheiro em disco.
+
+    Custou três diagnósticos errados numa tarde: duas vezes a dar uma
+    correção por não aplicada, e uma terceira a procurar um defeito de
+    layout que já estava resolvido.
+
+    **Só em DEBUG.** Em produção os estáticos levam hash no nome (o
+    WhiteNoise trata disso) e um ficheiro alterado tem endereço novo — lá a
+    cache é desejável, e é ela que faz o site abrir depressa.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        resposta = self.get_response(request)
+        if settings.DEBUG and request.path.startswith(settings.STATIC_URL):
+            resposta["Cache-Control"] = "no-store, must-revalidate"
+        return resposta
