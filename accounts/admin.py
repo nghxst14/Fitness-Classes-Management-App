@@ -10,7 +10,7 @@ from django.utils.html import format_html
 
 from .models import CreditType, User
 from .passwords import gerar_password_provisoria
-from .whatsapp import link_whatsapp
+from .whatsapp import icone_whatsapp, link_whatsapp
 
 
 class BirthdayTodayFilter(admin.SimpleListFilter):
@@ -53,7 +53,7 @@ class UserAdmin(BaseUserAdmin):
         "historico",
     )
 
-    @admin.display(description="WhatsApp")
+    @admin.display(description="")
     def whatsapp(self, obj):
         """
         O número a abrir a conversa, na lista e na ficha.
@@ -62,10 +62,11 @@ class UserAdmin(BaseUserAdmin):
         poupa-lhe abrir a ficha só para copiar o número. Contas de staff não
         são telemóveis e aparecem sem link.
 
-        Mostra "conversar" e não o número: aqui ao lado, a coluna
-        Utilizador já é o telemóvel.
+        Um ícone e não texto: a tabela tem dez colunas, e a palavra
+        "conversar" gastava largura para dizer o que o símbolo diz de
+        relance. O número já está na coluna do lado.
         """
-        return link_whatsapp(obj, etiqueta="conversar")
+        return icone_whatsapp(obj)
 
     @admin.display(description="Falar com o aluno")
     def whatsapp_na_ficha(self, obj):

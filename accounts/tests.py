@@ -319,13 +319,49 @@ class WhatsAppNaFichaTests(TestCase):
         self.aluno.save()
         self.assertNotIn("<script>x</script>", self._ficha(self.aluno))
 
-    def test_nao_repete_o_numero_que_ja_esta_ao_lado(self):
+    def test_a_coluna_do_whatsapp_e_um_icone_e_nao_texto(self):
+        """
+        O "conversar" gastava largura numa tabela que já tem dez colunas.
+
+        Um ícone diz a mesma coisa em muito menos espaço — e nesta tabela o
+        número já está na coluna ao lado, por isso o texto não acrescentava
+        nada.
+        """
+        lista = self.painel.get(
+            reverse("admin:accounts_user_changelist")
+        ).content.decode()
+        linha = [
+            b for b in lista.split("<tr")
+            if "913500500" in b and "field-whatsapp" in b
+        ][0]
+        coluna = linha.split('class="field-whatsapp">')[1].split("</td>")[0]
+
+        self.assertNotIn("conversar", coluna)
+        self.assertIn("whatsapp.svg", coluna)
+        # Continua a levar ao mesmo sítio.
+        self.assertIn("https://wa.me/351913500500", coluna)
+
+    def test_o_icone_diz_o_que_e_a_quem_nao_o_ve(self):
+        # Um ícone sem texto alternativo é invisível para um leitor de ecrã.
+        lista = self.painel.get(
+            reverse("admin:accounts_user_changelist")
+        ).content.decode()
+        linha = [
+            b for b in lista.split("<tr")
+            if "913500500" in b and "field-whatsapp" in b
+        ][0]
+        coluna = linha.split('class="field-whatsapp">')[1].split("</td>")[0]
+        self.assertIn("alt=", coluna)
+
+    def test_a_coluna_nao_tem_texto_nenhum(self):
         """
         Nos Utilizadores o nome de conta É o telemóvel.
 
-        Mostrar o número outra vez na coluna ao lado não acrescenta nada —
-        o link diz o que faz. (Nas Marcações e na Lista de espera continua a
-        mostrar o número: lá a coluna do lado tem o nome, não o número.)
+        Repeti-lo na coluna do lado não acrescentava nada, e a palavra
+        "conversar" que lá esteve gastava largura para dizer o que o símbolo
+        diz de relance. A coluna passou a ser só o ícone. (Nas Marcações e
+        na Lista de espera continua a mostrar o número: lá a coluna do lado
+        tem o nome, não o número.)
         """
         lista = self.painel.get(
             reverse("admin:accounts_user_changelist")
@@ -341,7 +377,7 @@ class WhatsAppNaFichaTests(TestCase):
         # o que não pode é aparecer escrito outra vez ao lado do que já está
         # na coluna Utilizador.
         visivel = re.sub(r"<[^>]+>", "", coluna).strip()
-        self.assertEqual(visivel, "conversar")
+        self.assertEqual(visivel, "", f"a coluna devia ser só o ícone: {visivel!r}")
 
     def test_a_ficha_diz_o_que_o_link_faz(self):
         ficha = self._ficha(self.aluno)

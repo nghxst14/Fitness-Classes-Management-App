@@ -12,12 +12,38 @@ telemóvel é o tipo de atrito que faz com que o aviso não chegue a ser dado.
 """
 import re
 
+from django.templatetags.static import static
 from django.utils.html import format_html
 
 # O formato que este projeto usa em todo o lado: 9 dígitos a começar por 9.
 # Contas de staff ("admin", "chefe") não passam neste crivo e ficam sem link
 # — não há conversa de WhatsApp para abrir com elas.
 TELEMOVEL_PT = re.compile(r"9\d{8}")
+
+
+def icone_whatsapp(utilizador, titulo="Abrir conversa no WhatsApp"):
+    """
+    O mesmo link, mas como ícone — para tabelas onde o espaço é escasso.
+
+    A lista de Utilizadores tem dez colunas; a palavra "conversar" gastava
+    largura para dizer o que o símbolo do WhatsApp diz de relance. E ali o
+    número já está na coluna do lado.
+
+    O `alt` não é decoração: sem ele o botão é invisível para quem usa um
+    leitor de ecrã, e passaria a haver uma ação sem nome nenhum.
+    """
+    numero = utilizador.username
+    if not TELEMOVEL_PT.fullmatch(numero):
+        return ""
+    nome = utilizador.get_full_name() or numero
+    return format_html(
+        '<a href="https://wa.me/351{}" target="_blank" rel="noopener" '
+        'data-nome="{}" title="{}" '
+        "onclick=\"return confirm('{} com ' + this.dataset.nome + '?')\">"
+        '<img src="{}" alt="{}" width="18" height="18" '
+        'style="vertical-align:middle;"></a>',
+        numero, nome, titulo, titulo, static("img/whatsapp.svg"), titulo,
+    )
 
 
 def link_whatsapp(

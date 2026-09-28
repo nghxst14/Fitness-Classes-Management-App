@@ -58,6 +58,17 @@
   box-sizing: border-box;
 }
 
+/* O "+" do Adicionar e a seta do Ver site são imagens de fundo encostadas
+   à direita DENTRO do botão, e o Django reserva-lhes 26px de espaço com um
+   padding-right maior. A regra acima uniformiza o padding para 14px dos dois
+   lados e tirava esse espaço: com o texto centrado, a última letra passava
+   por baixo do ícone. Devolve-se o espaço — só a estes, que os outros
+   botões não têm ícone nenhum. */
+.object-tools li a.addlink,
+.object-tools li a.viewsitelink {
+  padding-right: 30px;
+}
+
 /* Quando não cabem lado a lado, empilham — e empilham ALINHADOS, com a
    mesma largura, em vez de ficarem dois retângulos de tamanhos diferentes
    e com origens diferentes. */
