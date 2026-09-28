@@ -8,3 +8,9 @@
 # Linter: apanha imports por usar, variáveis mortas e erros de escrita antes
 # de chegarem ao browser. Configurado no pyproject.toml.
 ruff>=0.6
+
+# Gera os PDFs do MANUAL.md e do REUNIAO-SERGIO.md, com o
+# scripts/md_para_pdf.py. Não estava aqui declarado e perdeu-se ao recriar o
+# venv: o script existia, os PDFs existiam, e o comando falhava sem se
+# perceber porquê.
+reportlab>=4.0
