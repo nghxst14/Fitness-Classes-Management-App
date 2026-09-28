@@ -40,15 +40,12 @@ class User(AbstractUser):
     # balde correspondente à aula; cancelar/apagar devolve ao mesmo balde.
     sessoes_sg = models.PositiveIntegerField(
         "Sessões Small Group", default=0,
-        help_text="Sessões de Small Group disponíveis.",
     )
     sessoes_pt = models.PositiveIntegerField(
         "Sessões PT", default=0,
-        help_text="Sessões de PT (individual) disponíveis.",
     )
     sessoes_hybrid = models.PositiveIntegerField(
         "Sessões Hybrid", default=0,
-        help_text="Sessões de Hybrid disponíveis.",
     )
     is_trainer = models.BooleanField(
         "É treinador?",
@@ -59,22 +56,17 @@ class User(AbstractUser):
     deve_mudar_password = models.BooleanField(
         "Tem de mudar a password?",
         default=False,
-        help_text=(
-            "Fica marcado quando o treinador gera uma password provisória. "
-            "Enquanto estiver marcado, o aluno só consegue abrir a página de "
-            "mudar a password — e desmarca-se sozinho quando ele a muda."
-        ),
+        # Marcado ao gerar uma provisória; desmarca-se quando o aluno
+        # escolhe outra. Ver accounts/middleware.py.
+        help_text="O aluno tem de escolher uma password nova ao entrar.",
     )
     consentimento_em = models.DateTimeField(
         "Aceitou a política de privacidade em",
         null=True,
         blank=True,
-        help_text=(
-            "Quando o aluno aceitou a política, no registo. É a prova de "
-            "consentimento que o RGPD exige — dizer que ele aceitou não "
-            "chega, é preciso poder mostrar quando. Vazio nas contas "
-            "criadas no painel (ex.: staff) e nas anteriores a isto existir."
-        ),
+        # É a prova que o RGPD exige: dizer que ele aceitou não chega, é
+        # preciso poder mostrar quando. Vazio nas contas criadas no painel.
+        help_text="Quando aceitou a política de privacidade, no registo.",
     )
 
     class Meta:

@@ -66,9 +66,12 @@
       </div>
     </form>
 
+    {% comment %}
+      Fica a regra, sai a justificação: que o crédito foi gasto ao reservar
+      é como a app funciona, não algo que ele precise de ler aqui.
+    {% endcomment %}
     <p class="help" style="margin-top:1rem;">
-      Marcar uma falta <strong>não devolve</strong> o crédito — foi gasto ao
-      reservar. Quem avisa a tempo cancela a reserva e recebe-o de volta.
+      Marcar uma falta <strong>não devolve</strong> o crédito.
     </p>
   {% else %}
     <p>Ninguém inscrito nesta aula.</p>

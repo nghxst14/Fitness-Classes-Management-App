@@ -6,10 +6,14 @@
     o local e a lotação vêm preenchidos com os valores do programa semanal, e
     podes mudá-los só para esta semana. Desmarca as que não queres criar.
   </p>
+  {% comment %}
+    A explicação longa saiu: a hora não se editar é consequência de os
+    duplicados se compararem pelo instante (ver PENDENTES.md), e isso é
+    decisão nossa — não ajuda quem só quer gerar a semana. Fica o que ele
+    precisa de saber para não hesitar: o molde não muda.
+  {% endcomment %}
   <p class="help">
-    O programa semanal <strong>não é alterado</strong> por nada do que mudares
-    aqui — ele é o ponto de partida, não o registo da semana. A hora não se
-    edita: é por ela que se sabe se a aula já foi gerada.
+    O programa semanal <strong>não é alterado</strong> pelo que mudares aqui.
   </p>
 
   <form method="post" action="{% url 'admin:bookings_weeklyprogramslot_gerar' %}">

@@ -75,7 +75,7 @@ class UserAdmin(BaseUserAdmin):
             return "—"  # ecrã de criar: ainda não há número gravado
         return link_whatsapp(obj, etiqueta="Abrir conversa no WhatsApp")
 
-    @admin.display(description="Se o aluno se esqueceu da password")
+    @admin.display(description="Repor a password")
     def acao_password(self, obj):
         """
         O botão de gerar uma password provisória, na secção da password.
@@ -95,9 +95,8 @@ class UserAdmin(BaseUserAdmin):
             '<button type="submit" form="gerar-password-provisoria" '
             'class="button">Gerar password provisória</button>'
             '<p class="help" style="padding-left:0;margin-top:.5rem;">'
-            "Gera um código novo, mostra-to uma única vez para lho mandares, "
-            "e obriga-o a escolher outra password ao entrar. A password atual "
-            "dele não é visível para ninguém, nem aqui.</p>"
+            "Gera um código para lhe mandares. Ele escolhe uma nova ao "
+            "entrar.</p>"
         )
 
     @admin.display(description="Histórico")
@@ -112,6 +111,40 @@ class UserAdmin(BaseUserAdmin):
     list_filter = (BirthdayTodayFilter, "is_trainer", "is_staff", "is_active")
     search_fields = ("username", "first_name", "last_name")
     ordering = ("first_name", "last_name", "username")
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        """
+        Põe os rótulos do painel a dizer o mesmo que o site.
+
+        O Django chama "Utilizador" ao campo de login e explica-o com
+        "Obrigatório. 150 carateres ou menos. Apenas letras, dígitos
+        @/./+/-/_." — regras do modelo dele, que aqui é sempre um telemóvel
+        de nove dígitos. E "Primeiro nome"/"Último nome" não é como se diz
+        em Portugal nem como o site lhes chama.
+        """
+        campo = super().formfield_for_dbfield(db_field, request, **kwargs)
+        rotulos = {
+            "username": ("Telemóvel", "É com este número que o aluno entra."),
+            "first_name": ("Nome", ""),
+            "last_name": ("Apelido", ""),
+            # As três de baixo vêm traduzidas pelo Django e tratam por você
+            # ("Defina se este utilizador deva ser tratado como ativo. Não
+            # selecione em vez de remover as contas."), quando o resto do
+            # projeto trata por tu — e a primeira nem se percebe à primeira
+            # leitura.
+            "is_active": (
+                "Conta ativa",
+                "Desmarca para suspender o acesso sem apagar a conta.",
+            ),
+            "is_staff": ("Acede ao painel", "Dá-lhe acesso a esta administração."),
+            "is_superuser": (
+                "Administrador principal",
+                "Acesso total, incluindo às contas de administração.",
+            ),
+        }
+        if db_field.name in rotulos:
+            campo.label, campo.help_text = rotulos[db_field.name]
+        return campo
 
     def get_actions(self, request):
         # Sem remoção em massa: apagar contas é raro e delicado (histórico de
@@ -346,29 +379,16 @@ class UserAdmin(BaseUserAdmin):
             "Permissões",
             {"fields": ("is_trainer", "is_active", "is_staff", "is_superuser")},
         ),
-        (
-            "Password",
-            {
-                "fields": ("acao_password",),
-                "description": (
-                    "O campo que o Django mostra aqui foi retirado: dizia o "
-                    "algoritmo, as iterações e o hash — que não servem a "
-                    "ninguém — e o link dele levava a um formulário onde era "
-                    "preciso inventar a password à mão."
-                ),
-            },
-        ),
+        # Sem `description`: o porquê de não haver aqui o campo do Django
+        # (dizia o algoritmo, as iterações e o hash, e o link dele obrigava a
+        # inventar a password à mão) é uma decisão nossa, e decisões nossas
+        # vivem em comentários — não no ecrã de quem só quer usar isto.
+        ("Password", {"fields": ("acao_password",)}),
         (
             "Datas",
             {
                 "fields": (
                     "last_login", "date_joined", "created_at", "consentimento_em",
-                ),
-                "description": (
-                    "A data do consentimento é a prova de que o aluno aceitou "
-                    "a política de privacidade no registo. É só de leitura: "
-                    "uma prova que se pode escrever à mão não prova nada. "
-                    "Vazia nas contas criadas aqui no painel."
                 ),
             },
         ),
