@@ -3,6 +3,7 @@ from urllib.parse import quote
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.core.exceptions import PermissionDenied
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path, reverse
 from django.utils import timezone
@@ -87,16 +88,16 @@ class UserAdmin(BaseUserAdmin):
         """
         if not obj.pk:
             return "—"  # ecrã de criar: ainda não há a quem mudar a password
+        # Sem `onclick` com confirm(): a confirmação é uma janela nossa
+        # (static/js/password-provisoria.js), que se pode escrever e desenhar.
+        # Sem JavaScript isto continua a ser um submit a sério.
         return format_html(
             '<button type="submit" form="gerar-password-provisoria" '
-            'class="button" onclick="return confirm('
-            "'Gerar uma password provisória para {}? A password atual dele "
-            "deixa de funcionar.')\">Gerar password provisória</button>"
+            'class="button">Gerar password provisória</button>'
             '<p class="help" style="padding-left:0;margin-top:.5rem;">'
             "Gera um código novo, mostra-to uma única vez para lho mandares, "
             "e obriga-o a escolher outra password ao entrar. A password atual "
-            "dele não é visível para ninguém, nem aqui.</p>",
-            obj,
+            "dele não é visível para ninguém, nem aqui.</p>"
         )
 
     @admin.display(description="Histórico")
@@ -199,12 +200,27 @@ class UserAdmin(BaseUserAdmin):
             f"Password provisória: {nova}\n\n"
             "Ao entrares, a app pede-te para escolheres uma nova."
         )
+        endereco_wa = (
+            f"https://wa.me/351{aluno.username}?text={quote(texto)}"
+            if aluno.username.isdigit() else ""
+        )
+
+        # Com JavaScript, o painel mostra isto numa janela própria, com a
+        # password numa caixa e um botão de copiar — o Sérgio pode querer
+        # mandá-la por outro meio que não o WhatsApp. Sem JavaScript, segue
+        # o caminho de baixo: redireciona e diz a password num aviso.
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            return JsonResponse({
+                "password": nova,
+                "aluno": str(aluno),
+                "whatsapp": endereco_wa,
+            })
+
         ligacao = ""
-        if aluno.username.isdigit():
+        if endereco_wa:
             ligacao = format_html(
-                ' <a href="https://wa.me/351{}?text={}" target="_blank" '
-                'rel="noopener"><b>Mandar pelo WhatsApp</b></a>',
-                aluno.username, quote(texto),
+                ' <a href="{}" target="_blank" rel="noopener">'
+                "<b>Mandar pelo WhatsApp</b></a>", endereco_wa,
             )
         # A password só aparece AQUI e AGORA: fica guardada encriptada, e
         # nem o painel a consegue voltar a mostrar.

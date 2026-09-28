@@ -475,6 +475,45 @@ class PasswordProvisoriaTests(TestCase):
         avisos = " ".join(str(m) for m in resposta.context["messages"])
         self.assertRegex(avisos, r"[a-z0-9]{6,}")
 
+    def test_em_ajax_responde_em_json_com_a_password(self):
+        """
+        O painel mostra a password numa janela própria, sem recarregar.
+
+        Antes vinha como aviso no topo da página, depois de um refresh: o
+        Sérgio tinha de a procurar na página e selecioná-la à mão para a
+        copiar.
+        """
+        resposta = self.painel.post(
+            self.url, headers={"x-requested-with": "XMLHttpRequest"}
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        dados = resposta.json()
+        self.assertRegex(dados["password"], r"^[a-z0-9]{6}$")
+        self.assertIn("wa.me/351913500500", dados["whatsapp"])
+        self.assertIn("Joana", dados["aluno"])
+        # E a password que veio é mesmo a que passou a valer.
+        self.aluno.refresh_from_db()
+        self.assertTrue(self.aluno.check_password(dados["password"]))
+
+    def test_sem_javascript_continua_a_funcionar(self):
+        # Um POST normal mantém o caminho antigo: gera, redireciona e diz a
+        # password num aviso. A janela é uma comodidade, não uma dependência.
+        resposta = self.painel.post(self.url, follow=True)
+
+        self.assertEqual(resposta.status_code, 200)
+        avisos = " ".join(str(m) for m in resposta.context["messages"])
+        self.assertRegex(avisos, r"[a-z0-9]{6}")
+
+    def test_conta_sem_numero_nao_promete_whatsapp(self):
+        sem_numero = User.objects.create_user(username="ana-teste", password="x")
+        resposta = self.painel.post(
+            reverse("admin:accounts_user_password_provisoria",
+                    args=[sem_numero.pk]),
+            headers={"x-requested-with": "XMLHttpRequest"},
+        )
+        self.assertEqual(resposta.json()["whatsapp"], "")
+
     def test_so_por_post(self):
         # Um GET não pode mudar a password de ninguém (nem um link visitado
         # por engano, nem um prefetch do browser).

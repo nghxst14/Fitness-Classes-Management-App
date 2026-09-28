@@ -287,3 +287,91 @@
   -webkit-overflow-scrolling: touch;
   max-width: 100%;
 }
+
+/* --- Janela da password provisória ----------------------------------------
+   O `confirm()` do browser não se pode desenhar nem escrever em condições, e
+   o aviso no topo da página obrigava a recarregar e a selecionar a password
+   à mão. Isto é uma janela nossa, com a password numa caixa e um botão de
+   copiar — porque o Sérgio pode querer mandá-la por outro meio que não o
+   WhatsApp.
+
+   Cores do admin (var(--body-bg) e afins): assim acompanha o tema claro e o
+   escuro do painel sem ter de os declarar aqui. */
+.janela-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.55);
+}
+.janela-fundo[hidden] { display: none; }
+
+.janela {
+  width: 100%;
+  max-width: 26rem;
+  padding: 1.4rem;
+  border-radius: 10px;
+  background: var(--body-bg, #fff);
+  color: var(--body-fg, #333);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+}
+.janela h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1.05rem;
+  color: var(--body-fg, #333);
+}
+.janela p { margin: 0 0 1rem; line-height: 1.45; }
+.janela-nota { font-size: 0.85rem; color: var(--body-quiet-color, #666); }
+
+/* A password e o botão de copiar, lado a lado. */
+.password-linha {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+.password-linha input {
+  flex: 1;
+  min-width: 0;          /* sem isto o input não encolhe e estica a janela */
+  padding: 0.6rem 0.7rem;
+  font-family: monospace;
+  font-size: 1.15rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+  border: 1px solid var(--border-color, #ccc);
+  border-radius: 6px;
+  background: var(--darkened-bg, #f8f8f8);
+  color: var(--body-fg, #333);
+}
+.password-linha .button { flex: none; }
+
+.janela .whatsapp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-bottom: 1rem;
+  box-sizing: border-box;
+  background: #25d366;
+  color: #fff;
+}
+.janela .whatsapp[hidden] { display: none; }
+
+.janela-botoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.janela-botoes .button { min-height: 36px; }
+.janela-botoes .cancelar { background: var(--button-bg, #79aec8); opacity: 0.75; }
+
+@media (max-width: 480px) {
+  /* Em telemóvel os botões ocupam a largura toda: são alvos de toque. */
+  .janela-botoes { flex-direction: column-reverse; }
+  .janela-botoes .button { width: 100%; min-height: 44px; }
+  .password-linha { flex-direction: column; }
+  .password-linha .button { min-height: 44px; }
+}

@@ -1,12 +1,13 @@
 {% extends "admin/change_form.html" %}
+{% load static %}
 
 {% comment %}
-  O formulário que gera a password provisória.
+  A password provisória: o formulário que a gera e a janela que a mostra.
 
-  Está aqui, no fim da página e VAZIO, porque o botão que o submete vive lá
-  em cima, na secção "Password" da ficha (ver `acao_password` em
-  accounts/admin.py). O botão aponta-lhe com `form="..."`, que é o que o HTML
-  tem para ligar um botão a um formulário que não o envolve.
+  O formulário está aqui, no fim da página e VAZIO, porque o botão que o
+  submete vive lá em cima, na secção "Password" da ficha (ver `acao_password`
+  em accounts/admin.py). O botão aponta-lhe com `form="..."`, que é o que o
+  HTML tem para ligar um botão a um formulário que não o envolve.
 
   Não dava para pôr o <form> junto ao botão: tudo o que o admin desenha ao pé
   dos campos está dentro do formulário principal da ficha, e um <form> dentro
@@ -16,14 +17,61 @@
   É POST e não um link porque muda a password de alguém: um GET podia ser
   disparado por um prefetch do browser, e trancava a conta sem ninguém ter
   pedido nada.
+
+  Sem JavaScript o formulário submete à mesma, a página recarrega e a
+  password aparece num aviso no topo. A janela é uma comodidade, não uma
+  dependência.
 {% endcomment %}
 
 {% block content %}
   {{ block.super }}
+
   {% if original and not original.is_staff and not original.is_superuser %}
     <form id="gerar-password-provisoria" method="post"
           action="{% url 'admin:accounts_user_password_provisoria' original.pk %}">
       {% csrf_token %}
     </form>
+
+    <div class="janela-fundo" id="janela-password" hidden>
+      <div class="janela" role="dialog" aria-modal="true"
+           aria-labelledby="janela-password-titulo">
+
+        {# Passo 1: confirmar. #}
+        <div data-passo="confirmar">
+          <h2 id="janela-password-titulo">Gerar password provisória?</h2>
+          <p>
+            A password atual de <b>{{ original }}</b> deixa de funcionar.
+            Ele vai ter de escolher uma nova ao entrar.
+          </p>
+          <div class="janela-botoes">
+            <button type="button" class="button cancelar" data-fechar>Cancelar</button>
+            <button type="button" class="button default" data-gerar>Gerar</button>
+          </div>
+        </div>
+
+        {# Passo 2: a password, para copiar ou mandar. #}
+        <div data-passo="resultado" hidden>
+          <h2>Nova password</h2>
+          <div class="password-linha">
+            <input type="text" id="password-gerada" readonly aria-label="Nova password">
+            <button type="button" class="button" data-copiar>Copiar</button>
+          </div>
+          <p class="janela-nota">
+            Anota-a ou copia-a agora: fica guardada encriptada e não volta a
+            aparecer.
+          </p>
+          <a class="button whatsapp" data-whatsapp target="_blank" rel="noopener">
+            <img src="{% static 'img/whatsapp.svg' %}" alt="" width="16" height="16">
+            Mandar pelo WhatsApp
+          </a>
+          <div class="janela-botoes">
+            <button type="button" class="button" data-fechar>Fechar</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <script src="{% static 'js/password-provisoria.js' %}" defer></script>
   {% endif %}
 {% endblock %}
