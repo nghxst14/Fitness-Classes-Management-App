@@ -94,7 +94,7 @@ class UserAdmin(BaseUserAdmin):
         return format_html(
             '<button type="submit" form="gerar-password-provisoria" '
             'class="button">Gerar password provisória</button>'
-            '<p class="help" style="padding-left:0;margin-top:.5rem;">'
+            '<p class="help" style="margin-top:.5rem;">'
             "Gera um código para lhe mandares. Ele escolhe uma nova ao "
             "entrar.</p>"
         )

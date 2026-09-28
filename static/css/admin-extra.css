@@ -375,3 +375,16 @@
   .password-linha { flex-direction: column; }
   .password-linha .button { min-height: 44px; }
 }
+
+/* --- Ajuda dentro de um campo só de leitura -------------------------------
+   O Django dá `margin-left: 160px` às ajudas dos formulários, para as
+   alinhar com a coluna dos campos (o rótulo ocupa os primeiros 160px). Uma
+   ajuda que viva DENTRO do valor já está nessa coluna, e a margem
+   empurrava-a uma segunda vez: ficava encostada à direita, estreita e
+   desalinhada do botão que explica. */
+.aligned .form-row .readonly .help,
+.aligned .form-row .readonly p.help {
+  margin-left: 0;
+  padding-left: 0;
+  max-width: 34rem;   /* linhas curtas leem-se melhor do que uma coluna larga */
+}
