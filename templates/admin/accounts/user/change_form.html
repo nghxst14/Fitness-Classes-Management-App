@@ -22,10 +22,9 @@
     <li>
       <form method="post"
             action="{% url 'admin:accounts_user_password_provisoria' original.pk %}"
-            style="display:inline;">
+            style="display:contents;">
         {% csrf_token %}
         <button type="submit" class="historylink"
-                style="border:0; cursor:pointer;"
                 title="Para quando o aluno se esquece da password: gera uma provisória, mostra-a uma única vez e obriga-o a escolher outra ao entrar."
                 onclick="return confirm('Gerar uma password provisória para {{ original }}? A password atual dele deixa de funcionar.')">
           Gerar password provisória

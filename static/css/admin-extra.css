@@ -47,7 +47,11 @@
    pastilha enorme. 34px com a letra um ponto maior é o meio-termo — dá para
    o dedo sem parecer que o botão foi inchado. */
 .object-tools li a:link,
-.object-tools li a:visited {
+.object-tools li a:visited,
+/* Também os <button>: a barra tem um botão a sério (o de gerar a password
+   provisória, que muda dados e por isso não pode ser um link). Sem isto
+   ficava com 18px ao lado de um de 34 — metade da altura, na mesma linha. */
+.object-tools li button {
   float: none;
   display: inline-flex;
   align-items: center;
@@ -57,16 +61,45 @@
   font-size: 0.75rem;
   box-sizing: border-box;
 }
+.object-tools li button {
+  /* Um <button> não herda a família da letra nem a cor do texto. */
+  font-family: inherit;
+  color: inherit;
+  border: 0;
+  cursor: pointer;
+}
 
-/* O "+" do Adicionar e a seta do Ver site são imagens de fundo encostadas
-   à direita DENTRO do botão, e o Django reserva-lhes 26px de espaço com um
-   padding-right maior. A regra acima uniformiza o padding para 14px dos dois
-   lados e tirava esse espaço: com o texto centrado, a última letra passava
-   por baixo do ícone. Devolve-se o espaço — só a estes, que os outros
-   botões não têm ícone nenhum. */
+/* O "+" do Adicionar e a seta do Ver site: o Django desenha-os como imagem
+   de FUNDO encostada à direita. Uma imagem de fundo não ocupa lugar nenhum
+   no layout — o texto pode passar-lhe por cima, e passa mesmo assim que o
+   botão fique apertado.
+
+   A primeira tentativa foi devolver o espaço com padding-right. Resolvia na
+   nossa medição, mas deixava dez pixels de folga: qualquer coisa que faça o
+   texto medir um pouco mais — outra fonte de sistema, o zoom do browser, um
+   rótulo mais comprido — e volta a sobrepor. É corrigir o sintoma.
+
+   Aqui o ícone passa a ser um elemento do flex, com lugar próprio ao lado do
+   texto. Deixa de haver sobreposição possível, em qualquer largura. */
 .object-tools li a.addlink,
 .object-tools li a.viewsitelink {
-  padding-right: 30px;
+  background-image: none;
+  gap: 8px;
+}
+.object-tools li a.addlink::after,
+.object-tools li a.viewsitelink::after {
+  content: "";
+  flex: 0 0 13px;   /* não encolhe quando o espaço aperta */
+  height: 13px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+.object-tools li a.addlink::after {
+  background-image: url("../admin/img/tooltag-add.svg");
+}
+.object-tools li a.viewsitelink::after {
+  background-image: url("../admin/img/tooltag-arrowright.svg");
 }
 
 /* Quando não cabem lado a lado, empilham — e empilham ALINHADOS, com a
@@ -81,7 +114,8 @@
   .object-tools li,
   .object-tools li + li { width: 100%; }
   .object-tools li a:link,
-  .object-tools li a:visited { width: 100%; }
+  .object-tools li a:visited,
+  .object-tools li button { width: 100%; }
 }
 
 /* O título deixa de precisar de espaço reservado à direita para a barra. */
